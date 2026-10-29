@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tv generator-info-name="scraper_epg.py">
+<tv generator-info-name="scraper_epg.py" generator-info-url="https://github.com">
   <channel id="FOX MX">
     <display-name>FOX MX</display-name>
     <icon src="https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png"/>
