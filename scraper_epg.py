@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # ==============================================================================
-# Script: scraper_epg.py
-# Función: Raspa programación de gatotv.com y genera XML en formato XMLTV
-# Zona horaria: España (UTC+1 invierno / UTC+2 verano), detectada automáticamente
+# Script: scraper_epg.py - V2 FIX
+# Fix: usa ZoneInfo para México -> España, corrige hueco 00:00-08:00
 # ==============================================================================
 
 import requests
@@ -12,45 +11,11 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 import time
 import re
+from zoneinfo import ZoneInfo
 
 # ==============================================================================
-# ZONA HORARIA ESPAÑA - Detección automática
-# Cambio de hora: último domingo de marzo (→ +0200) y octubre (→ +0100)
+# CONFIGURACIÓN
 # ==============================================================================
-
-def ultimo_domingo(year, month):
-    """Devuelve la fecha del último domingo de un mes dado."""
-    ultimo_dia = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year, 12, 31)
-    dias_hasta_domingo = ultimo_dia.weekday() + 1  # weekday(): lunes=0, domingo=6
-    if dias_hasta_domingo == 7:
-        dias_hasta_domingo = 0
-    return ultimo_dia - timedelta(days=dias_hasta_domingo)
-
-def get_timezone_espana():
-    """
-    Devuelve el offset de España según la fecha actual.
-    Verano (CEST): último domingo de marzo → último domingo de octubre → +0200
-    Invierno (CET): resto del año → +0100
-    """
-    ahora = datetime.utcnow()
-    inicio_verano = ultimo_domingo(ahora.year, 3)   # Último domingo de marzo
-    fin_verano    = ultimo_domingo(ahora.year, 10)  # Último domingo de octubre
-
-    if inicio_verano <= ahora < fin_verano:
-        offset = "+0200"
-        nombre = "CEST (verano)"
-    else:
-        offset = "+0100"
-        nombre = "CET (invierno)"
-
-    print(f"  Zona horaria España detectada: {offset} ({nombre})")
-    return offset
-
-# ==============================================================================
-# CONFIGURACIÓN - Añade o quita canales aquí
-# ==============================================================================
-
-TZ_MEXICO = "-0600"   # Hora en que la web publica los horarios (México Centro)
 
 CANALES = [
     {
@@ -74,11 +39,12 @@ CANALES = [
 ]
 
 DIAS = 3
+ZONA_MX = ZoneInfo("America/Mexico_City")
+ZONA_ES = ZoneInfo("Europe/Madrid")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "es-MX,es;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
 HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
@@ -87,59 +53,36 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 # FUNCIONES
 # ==============================================================================
 
-def convertir_hora_a_espana(hora_str, fecha, tz_espana):
-    """
-    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2)
-    y devuelve formato XMLTV con el offset de España.
-    """
-    hora_str = hora_str.strip()
+def convertir_hora(hora_str, fecha_mx_base):
+    """ Convierte '12:30 AM' en fecha_mx_base a datetime ES y MX """
     try:
-        t = datetime.strptime(hora_str, "%I:%M %p")
+        t = datetime.strptime(hora_str.strip(), "%I:%M %p")
     except ValueError:
-        return None
+        return None, None
 
-    # Hora local México
-    dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-
-    # Convertir a UTC (México = UTC-6, sumamos 6 horas)
-    dt_utc = dt_mexico + timedelta(hours=6)
-
-    # Convertir a hora España
-    offset_horas = int(tz_espana[:3])  # +01 o +02
-    dt_espana = dt_utc + timedelta(hours=offset_horas)
-
-    return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_espana
-
+    dt_mx = fecha_mx_base.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+    # Hacemos aware
+    dt_mx = dt_mx.replace(tzinfo=ZONA_MX)
+    dt_es = dt_mx.astimezone(ZONA_ES)
+    return dt_mx, dt_es
 
 def extraer_titulo_y_desc(celda):
-    """Extrae título y descripción de la celda del programa."""
     enlace = celda.find("a")
-    if enlace:
-        titulo = enlace.get_text(strip=True)
-    else:
-        texto_completo = celda.get_text(separator="\n", strip=True)
-        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
-        titulo = lineas[0] if lineas else ""
-
+    titulo = enlace.get_text(strip=True) if enlace else ""
+    if not titulo:
+        texto = celda.get_text(separator="\n", strip=True)
+        titulo = [l.strip() for l in texto.split("\n") if l.strip()][0] if texto else ""
+    
     desc = ""
     for tag in celda.find_all(["p", "span", "small"]):
         t = tag.get_text(strip=True)
         if t and t != titulo:
             desc = t
             break
-
-    if not desc:
-        texto_completo = celda.get_text(separator="\n", strip=True)
-        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
-        if len(lineas) > 1 and len(lineas[1]) > 30:
-            desc = lineas[1]
-
     return titulo, desc
 
-
-def raspar_canal_dia(slug, fecha, tz_espana):
-    """Raspa los programas de un canal para una fecha concreta."""
-    fecha_str = fecha.strftime("%Y-%m-%d")
+def raspar_canal_dia(slug, fecha_mx):
+    fecha_str = fecha_mx.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
     print(f"  → Raspando: {url}")
 
@@ -157,41 +100,37 @@ def raspar_canal_dia(slug, fecha, tz_espana):
     for tabla in soup.find_all("table"):
         for fila in tabla.find_all("tr"):
             celdas = fila.find_all("td")
-            textos = [c.get_text(separator=" ", strip=True) for c in celdas]
-            textos = [t for t in textos if t]
-
+            textos = [c.get_text(strip=True) for c in celdas if c.get_text(strip=True)]
             if len(textos) < 3:
                 continue
 
-            hora_inicio_txt = textos[0]
-            hora_fin_txt = textos[1]
-
-            if not HORA_RE.match(hora_inicio_txt):
-                continue
-            if not HORA_RE.match(hora_fin_txt):
+            h_ini_txt, h_fin_txt = textos[0], textos[1]
+            if not HORA_RE.match(h_ini_txt) or not HORA_RE.match(h_fin_txt):
                 continue
 
             celdas_con_texto = [c for c in celdas if c.get_text(strip=True)]
             if len(celdas_con_texto) < 3:
                 continue
-            celda_prog = celdas_con_texto[2]
-            titulo, desc = extraer_titulo_y_desc(celda_prog)
 
+            titulo, desc = extraer_titulo_y_desc(celdas_con_texto[2])
             if not titulo:
                 continue
 
-            # Fecha de fin (si empieza PM y termina AM → día siguiente en México)
-            fin_fecha = fecha
-            if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
-                fin_fecha = fecha + timedelta(days=1)
+            dt_mx_ini, dt_es_ini = convertir_hora(h_ini_txt, fecha_mx)
+            dt_mx_fin, dt_es_fin = convertir_hora(h_fin_txt, fecha_mx)
 
-            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, tz_espana)
-            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, tz_espana)
-
-            if not inicio_dt or not fin_dt:
+            if not dt_mx_ini or not dt_mx_fin:
                 continue
 
-            clave = f"{inicio_dt}|{titulo}"
+            # FIX del bug 00:00-00:30: si fin <= inicio, es día siguiente en MX
+            if dt_mx_fin <= dt_mx_ini:
+                dt_mx_fin += timedelta(days=1)
+                dt_es_fin += timedelta(days=1)
+
+            inicio_xml = dt_es_ini.strftime("%Y%m%d%H%M%S %z")
+            fin_xml = dt_es_fin.strftime("%Y%m%d%H%M%S %z")
+
+            clave = f"{inicio_xml}|{titulo}"
             if clave in vistos:
                 continue
             vistos.add(clave)
@@ -199,18 +138,18 @@ def raspar_canal_dia(slug, fecha, tz_espana):
             programas.append({
                 "titulo": titulo,
                 "desc": desc,
-                "inicio": inicio_dt,
-                "fin": fin_dt,
+                "inicio": inicio_xml,
+                "fin": fin_xml,
+                "dt_es_ini": dt_es_ini # para ordenar
             })
 
+    programas.sort(key=lambda x: x["dt_es_ini"])
     print(f"  ✓ {len(programas)} programas para {fecha_str}")
     return programas
 
-
 def generar_xml(canales_data):
-    """Genera el XML en formato XMLTV."""
     tv = ET.Element("tv")
-    tv.set("generator-info-name", "scraper_epg.py")
+    tv.set("generator-info-name", "scraper_epg.py v2")
     tv.set("generator-info-url", "https://github.com")
 
     for canal in canales_data:
@@ -240,49 +179,29 @@ def generar_xml(canales_data):
     dom = minidom.parseString(xml_str)
     return dom.toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
 
-
-# ==============================================================================
-# MAIN
-# ==============================================================================
-
 def main():
-    print("═══ INICIANDO SCRAPER EPG GATOTV ═══")
+    print("═══ INICIANDO SCRAPER EPG GATOTV V2 ═══")
+    print(f"  Zona MX: {ZONA_MX} | Zona ES: {ZONA_ES}")
 
-    # Detectar zona horaria de España automáticamente
-    tz_espana = get_timezone_espana()
-
-    hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    fechas = [hoy + timedelta(days=i) for i in range(DIAS)]
+    hoy_mx = datetime.now(ZONA_MX).replace(hour=0, minute=0, second=0, microsecond=0)
+    fechas = [hoy_mx + timedelta(days=i) for i in range(DIAS)]
 
     canales_data = []
-
     for canal in CANALES:
         print(f"\n─── Canal: {canal['nombre']} ───")
-        todos_programas = []
-
+        todos = []
         for fecha in fechas:
-            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, tz_espana)
-            todos_programas.extend(programas_dia)
+            todos.extend(raspar_canal_dia(canal["url_slug"], fecha))
             time.sleep(1.5)
+        # Limpia el campo auxiliar
+        for p in todos: p.pop("dt_es_ini", None)
+        canales_data.append({**canal, "programas": todos})
+        print(f"  ═► Total: {len(todos)} programas en {DIAS} días")
 
-        canales_data.append({
-            "id": canal["id"],
-            "nombre": canal["nombre"],
-            "logo": canal["logo"],
-            "programas": todos_programas,
-        })
-        print(f"  ═► Total: {len(todos_programas)} programas en {DIAS} días")
-
-    print("\n─── GENERANDO XML ───")
     xml_output = generar_xml(canales_data)
-
     with open("guide.xml", "w", encoding="UTF-8") as f:
         f.write(xml_output)
-
-    total = sum(len(c["programas"]) for c in canales_data)
-    print(f"✓ guide.xml generado — Canales: {len(canales_data)} | Programas: {total}")
-    print("═══ PROCESO FINALIZADO ═══")
-
+    print(f"\n✓ guide.xml generado")
 
 if __name__ == "__main__":
     main()
