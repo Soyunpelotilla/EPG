@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-# scraper_epg.py v3 FINAL
-# - Siempre escribe en hora España +0100/+0200, nunca +0000
-# - Funciona igual en tu PC y en 【entity-GitHub¦canonical_name=GitHub】 Actions
-# - GatoTV ya viene en ES desde España, lo tomamos tal cual
-
+# scraper_epg.py v3.1 FINAL
+# FIX: Captura 00:00-00:30 en una sola celda como en tu foto + nunca +0000
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -21,36 +18,22 @@ CANALES = [
 
 DIAS = 3
 ZONA_ES = ZoneInfo("Europe/Madrid")
-
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "es-ES,es;q=0.9",
 }
-HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
+HORA_RE = re.compile(r"^\d{1,2}:\d{2}$")
+HORA_RANGO_RE = re.compile(r"(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})")
 
 def extraer_titulo_y_desc(celda):
     enlace = celda.find("a")
-    titulo = enlace.get_text(strip=True) if enlace else ""
-    if not titulo:
-        txt = celda.get_text(separator="\n", strip=True)
-        titulo = [l for l in txt.split("\n") if l.strip()][0] if txt else ""
-    desc = ""
-    for tag in celda.find_all(["p","span","small"]):
-        t = tag.get_text(strip=True)
-        if t and t != titulo:
-            desc = t
-            break
-    return titulo, desc
+    titulo = enlace.get_text(strip=True) if enlace else celda.get_text(strip=True)
+    titulo = titulo.split("\n")[0].strip()
+    return titulo, ""
 
 def parse_hora_es(hora_str, fecha_base_es):
-    """Toma '12:00 AM' como hora de España directamente"""
-    try:
-        t = datetime.strptime(hora_str.strip(), "%I:%M %p")
-    except:
-        return None
-    dt = fecha_base_es.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-    # Forzamos +0100 / +0200 SIEMPRE
-    dt = dt.replace(tzinfo=ZONA_ES)
+    t = datetime.strptime(hora_str.strip(), "%H:%M")
+    dt = fecha_base_es.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0, tzinfo=ZONA_ES)
     return dt
 
 def raspar_canal_dia(slug, fecha_es):
@@ -66,47 +49,55 @@ def raspar_canal_dia(slug, fecha_es):
     soup = BeautifulSoup(r.text, "html.parser")
     programas = []
 
-    for tabla in soup.find_all("table"):
-        for fila in tabla.find_all("tr"):
-            celdas = [c for c in fila.find_all("td") if c.get_text(strip=True)]
-            if len(celdas) < 3: continue
-            textos = [c.get_text(strip=True) for c in celdas]
-            if not HORA_RE.match(textos[0]) or not HORA_RE.match(textos[1]): continue
-            
-            titulo, desc = extraer_titulo_y_desc(celdas[2])
-            if not titulo: continue
+    for tr in soup.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 2: continue
+        
+        # Tu foto: primera td = "00:00 - 00:30"
+        primera = tds[0].get_text(" ", strip=True)
+        m = HORA_RANGO_RE.search(primera)
+        if not m:
+            continue
+        
+        h_ini_txt, h_fin_txt = m.group(1), m.group(2)
+        celda_prog = tds[1] if len(tds) >= 2 else None
+        if not celda_prog: continue
 
-            dt_ini = parse_hora_es(textos[0], fecha_es)
-            dt_fin = parse_hora_es(textos[1], fecha_es)
-            if not dt_ini or not dt_fin: continue
+        titulo, desc = extraer_titulo_y_desc(celda_prog)
+        if not titulo or titulo.lower() in ["hora", "programa", "madrugada", "mañana", "tarde", "noche"]: 
+            continue
+        if len(titulo) < 3: continue
 
-            # 00:00 - 00:30 -> fin <= inicio = día siguiente
-            if dt_fin <= dt_ini:
-                dt_fin += timedelta(days=1)
+        dt_ini = parse_hora_es(h_ini_txt, fecha_es)
+        dt_fin = parse_hora_es(h_fin_txt, fecha_es)
+        if dt_fin <= dt_ini:
+            dt_fin += timedelta(days=1)
 
-            programas.append({"titulo": titulo, "desc": desc, "ini": dt_ini, "fin": dt_fin})
+        programas.append({
+            "titulo": titulo,
+            "desc": desc,
+            "ini_dt": dt_ini,
+            "inicio": dt_ini.strftime("%Y%m%d%H%M%S %z"),
+            "fin": dt_fin.strftime("%Y%m%d%H%M%S %z"),
+        })
 
-    programas.sort(key=lambda x: x["ini"])
-    # Filtro anti-solape
+    programas.sort(key=lambda x: x["ini_dt"])
+    # Solo duplicados exactos, no borres el directo
     filtrados = []
+    vistos = set()
     for p in programas:
-        if not filtrados or p["ini"] >= filtrados[-1]["fin"]:
+        k = f"{p['inicio']}-{p['titulo']}"
+        if k not in vistos:
+            vistos.add(k)
             filtrados.append(p)
     
-    resultado = []
-    for p in filtrados:
-        resultado.append({
-            "titulo": p["titulo"],
-            "desc": p["desc"],
-            "inicio": p["ini"].strftime("%Y%m%d%H%M%S %z"),
-            "fin": p["fin"].strftime("%Y%m%d%H%M%S %z"),
-        })
-    print(f"  ✓ {len(resultado)} programas")
-    return resultado
+    for p in filtrados: p.pop("ini_dt", None)
+    print(f"  ✓ {len(filtrados)} programas")
+    return filtrados
 
 def generar_xml(canales_data):
     tv = ET.Element("tv")
-    tv.set("generator-info-name", "scraper_epg.py v3")
+    tv.set("generator-info-name", "scraper_epg.py v3.1")
     for canal in canales_data:
         ch = ET.SubElement(tv, "channel")
         ch.set("id", canal["id"])
@@ -122,30 +113,23 @@ def generar_xml(canales_data):
             t = ET.SubElement(pr, "title")
             t.set("lang", "es")
             t.text = prog["titulo"]
-            if prog.get("desc"):
-                d = ET.SubElement(pr, "desc")
-                d.set("lang", "es")
-                d.text = prog["desc"]
     xml_str = ET.tostring(tv, encoding="unicode")
     return minidom.parseString(xml_str).toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
 
 def main():
-    print("═══ SCRAPER V3 - SIEMPRE +0100 ═══")
-    # BASE SIEMPRE EN ESPAÑA, aunque 【entity-GitHub¦canonical_name=GitHub】 esté en UTC
+    print("═══ SCRAPER V3.1 - DIRECTO ESPAÑA PRIMERO ═══")
     hoy_es = datetime.now(ZONA_ES).replace(hour=0, minute=0, second=0, microsecond=0)
     fechas = [hoy_es + timedelta(days=i) for i in range(DIAS)]
-
     canales_data = []
     for canal in CANALES:
         print(f"\n─── {canal['nombre']} ───")
         todos = []
         for f in fechas:
             todos.extend(raspar_canal_dia(canal["url_slug"], f))
-            time.sleep(1.2)
+            time.sleep(1)
         canales_data.append({**canal, "programas": todos})
-
     open("guide.xml", "w", encoding="UTF-8").write(generar_xml(canales_data))
-    print("\n✓ guide.xml generado en +0100")
+    print("\n✓ guide.xml generado en +0100 - directo primero")
 
 if __name__ == "__main__":
     main()
