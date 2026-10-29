@@ -46,107 +46,102 @@ DIAS = 3
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "es-MX,es;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
 # ==============================================================================
 # FUNCIONES
 # ==============================================================================
 
+HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
+
 def convertir_hora(hora_str, fecha, tz_offset):
-    """
-    Convierte '7:00 AM' o '10:30 PM' + fecha a formato XMLTV: '20261029070000 -0600'
-    Maneja medianoche (12:00 AM) correctamente.
-    """
+    """Convierte '7:00 AM' + fecha a formato XMLTV '20261029070000 -0600'"""
     hora_str = hora_str.strip()
     try:
         t = datetime.strptime(hora_str, "%I:%M %p")
     except ValueError:
-        try:
-            t = datetime.strptime(hora_str, "%H:%M")
-        except ValueError:
-            return None
-
+        return None
     dt = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
     return dt.strftime("%Y%m%d%H%M%S") + " " + tz_offset
 
 
 def raspar_canal_dia(slug, fecha, tz_offset):
-    """
-    Raspa los programas de un canal para una fecha concreta.
-    Devuelve lista de dicts: {titulo, inicio, fin}
-    """
+    """Raspa los programas de un canal para una fecha concreta."""
     fecha_str = fecha.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
-
     print(f"  → Raspando: {url}")
 
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp = requests.get(url, headers=HEADERS, timeout=20)
         resp.raise_for_status()
     except Exception as e:
-        print(f"  ✗ Error al descargar {url}: {e}")
+        print(f"  ✗ Error: {e}")
         return []
 
     soup = BeautifulSoup(resp.text, "html.parser")
-
     programas = []
 
-    # La tabla de programación tiene filas con hora inicio, hora fin, programa
-    tabla = soup.find("table")
-    if not tabla:
-        print(f"  ✗ No se encontró tabla en {url}")
-        return []
+    # Buscar todas las filas de todas las tablas
+    for tabla in soup.find_all("table"):
+        for fila in tabla.find_all("tr"):
+            celdas = fila.find_all("td")
+            
+            # Extraer textos no vacíos de las celdas
+            textos = []
+            for c in celdas:
+                t = c.get_text(separator=" ", strip=True)
+                if t:
+                    textos.append(t)
+            
+            # Necesitamos al menos 3 valores: hora_inicio, hora_fin, programa
+            if len(textos) < 3:
+                continue
 
-    filas = tabla.find_all("tr")
-    for fila in filas:
-        celdas = fila.find_all("td")
-        if len(celdas) < 3:
-            continue
+            hora_inicio_txt = textos[0]
+            hora_fin_txt = textos[1]
+            titulo_raw = textos[2]
 
-        hora_inicio_txt = celdas[0].get_text(strip=True)
-        hora_fin_txt = celdas[1].get_text(strip=True)
+            # Verificar que las dos primeras columnas sean horas válidas
+            if not HORA_RE.match(hora_inicio_txt):
+                continue
+            if not HORA_RE.match(hora_fin_txt):
+                continue
 
-        # La celda del programa puede tener texto simple o enlace
-        celda_prog = celdas[2]
-        # Primero intentamos obtener el título del enlace o texto directo
-        titulo = celda_prog.get_text(separator="\n", strip=True).split("\n")[0].strip()
+            # Limpiar título: quedarse solo con la primera línea
+            titulo = titulo_raw.split("\n")[0].strip()
+            # Quitar descripciones cortas tipo "NFL" que vienen pegadas
+            titulo = re.split(r'\s{2,}', titulo)[0].strip()
 
-        # Saltar filas de cabecera o secciones (Madrugada, Mañana, etc.)
-        if not hora_inicio_txt or not re.search(r"AM|PM|:", hora_inicio_txt):
-            continue
-        if not titulo or titulo in ["Hora Inicio", "Programa", ""]:
-            continue
+            if not titulo:
+                continue
 
-        # Convertir horas
-        # Si hora_fin es "12:00 AM" y hora_inicio es noche → el fin es el día siguiente
-        inicio_dt = convertir_hora(hora_inicio_txt, fecha, tz_offset)
+            # Calcular fecha de fin (si empieza en PM y termina en AM → día siguiente)
+            fin_fecha = fecha
+            if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
+                fin_fecha = fecha + timedelta(days=1)
 
-        # Para la hora fin: si empieza en PM y termina en AM → sumar un día
-        fin_fecha = fecha
-        if re.search(r"PM", hora_inicio_txt) and re.search(r"AM", hora_fin_txt):
-            fin_fecha = fecha + timedelta(days=1)
-        fin_dt = convertir_hora(hora_fin_txt, fin_fecha, tz_offset)
+            inicio_dt = convertir_hora(hora_inicio_txt, fecha, tz_offset)
+            fin_dt = convertir_hora(hora_fin_txt, fin_fecha, tz_offset)
 
-        if inicio_dt and fin_dt and titulo:
-            programas.append({
-                "titulo": titulo,
-                "inicio": inicio_dt,
-                "fin": fin_dt,
-            })
+            if inicio_dt and fin_dt:
+                programas.append({
+                    "titulo": titulo,
+                    "inicio": inicio_dt,
+                    "fin": fin_dt,
+                })
 
-    print(f"  ✓ {len(programas)} programas encontrados para {fecha_str}")
+    print(f"  ✓ {len(programas)} programas para {fecha_str}")
     return programas
 
 
 def generar_xml(canales_data):
-    """
-    Genera el XML en formato XMLTV a partir de los datos raspados.
-    """
+    """Genera el XML en formato XMLTV."""
     tv = ET.Element("tv")
     tv.set("generator-info-name", "scraper_epg.py")
     tv.set("generator-info-url", "https://github.com")
 
-    # 1. Escribir canales
+    # Canales
     for canal in canales_data:
         ch = ET.SubElement(tv, "channel")
         ch.set("id", canal["id"])
@@ -156,7 +151,7 @@ def generar_xml(canales_data):
             icon = ET.SubElement(ch, "icon")
             icon.set("src", canal["logo"])
 
-    # 2. Escribir programas
+    # Programas
     for canal in canales_data:
         for prog in canal["programas"]:
             programme = ET.SubElement(tv, "programme")
@@ -167,7 +162,6 @@ def generar_xml(canales_data):
             titulo_el.set("lang", "es")
             titulo_el.text = prog["titulo"]
 
-    # Formatear XML bonito
     xml_str = ET.tostring(tv, encoding="unicode")
     dom = minidom.parseString(xml_str)
     return dom.toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
@@ -189,11 +183,9 @@ def main():
         todos_programas = []
 
         for fecha in fechas:
-            programas_dia = raspar_canal_dia(
-                canal["url_slug"], fecha, canal["timezone_offset"]
-            )
+            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, canal["timezone_offset"])
             todos_programas.extend(programas_dia)
-            time.sleep(1)  # Pausa entre peticiones para no saturar el servidor
+            time.sleep(1.5)
 
         canales_data.append({
             "id": canal["id"],
@@ -201,9 +193,7 @@ def main():
             "logo": canal["logo"],
             "programas": todos_programas,
         })
-
-        total = len(todos_programas)
-        print(f"  ═► Total {canal['nombre']}: {total} programas en {DIAS} días")
+        print(f"  ═► Total: {len(todos_programas)} programas en {DIAS} días")
 
     print("\n─── GENERANDO XML ───")
     xml_output = generar_xml(canales_data)
@@ -211,10 +201,8 @@ def main():
     with open("guide.xml", "w", encoding="UTF-8") as f:
         f.write(xml_output)
 
-    # Contar totales
-    total_programas = sum(len(c["programas"]) for c in canales_data)
-    print(f"✓ guide.xml generado correctamente")
-    print(f"  Canales: {len(canales_data)} | Programas: {total_programas}")
+    total = sum(len(c["programas"]) for c in canales_data)
+    print(f"✓ guide.xml generado — Canales: {len(canales_data)} | Programas: {total}")
     print("═══ PROCESO FINALIZADO ═══")
 
 
