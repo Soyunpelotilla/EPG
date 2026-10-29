@@ -102,8 +102,8 @@ def convertir_hora_a_espana(hora_str, fecha, offset_str, offset_horas):
     # Hora local México
     dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
 
-    # → UTC (México = UTC-6, sumamos 6h)
-    dt_utc = dt_mexico + timedelta(hours=6)
+    # → UTC (México Ciudad de México = UTC-6 en invierno, pero la web usa UTC-7)
+    dt_utc = dt_mexico + timedelta(hours=7)
 
     # → Hora España
     dt_espana = dt_utc + timedelta(hours=offset_horas)
