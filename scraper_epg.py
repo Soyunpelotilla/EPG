@@ -54,20 +54,20 @@ TZ_MEXICO = "-0600"   # Hora en que la web publica los horarios (México Centro)
 
 CANALES = [
     {
-        "id": "fox_mexico",
-        "nombre": "Canal Fox México",
+        "id": "FOX MX",
+        "nombre": "FOX MX",
         "url_slug": "fox_mexico",
         "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png",
     },
     {
-        "id": "fox_plus_centroamerica",
-        "nombre": "FOX+ Centroamérica",
+        "id": "FOX+ MX",
+        "nombre": "FOX+ MX",
         "url_slug": "fox_plus_centroamerica",
         "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png",
     },
     {
-        "id": "5_mexico",
-        "nombre": "Canal 5 México (XHGC)",
+        "id": "Canal 5 MX",
+        "nombre": "Canal 5 MX",
         "url_slug": "5_mexico",
         "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png",
     },
