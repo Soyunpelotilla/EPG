@@ -1,0 +1,51 @@
+name: Generador EPG GatoTV
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # Cada 6 horas automáticamente
+  workflow_dispatch:          # También se puede lanzar manualmente
+
+permissions:
+  contents: write
+
+jobs:
+  build-epg:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests beautifulsoup4
+
+      - name: Ejecutar scraper EPG
+        run: python scraper_epg.py
+
+      - name: Validar guide.xml
+        run: |
+          if [ ! -f guide.xml ]; then
+            echo "❌ guide.xml no existe"
+            exit 1
+          fi
+          if ! grep -q "<programme" guide.xml; then
+            echo "❌ guide.xml no tiene programas. Se conserva la versión anterior."
+            exit 1
+          fi
+          CANALES=$(grep -c "<channel " guide.xml)
+          PROGRAMAS=$(grep -c "<programme " guide.xml)
+          echo "✅ guide.xml válido — Canales: $CANALES | Programas: $PROGRAMAS"
+
+      - name: Publicar guide.xml en el repositorio
+        if: success()
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add guide.xml
+          git commit -m "EPG actualizada $(date '+%d/%m/%Y %H:%M UTC')" || echo "Sin cambios"
+          git push
