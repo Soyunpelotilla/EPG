@@ -66,6 +66,44 @@ def convertir_hora(hora_str, fecha, tz_offset):
     return dt.strftime("%Y%m%d%H%M%S") + " " + tz_offset
 
 
+def extraer_titulo_y_desc(celda):
+    """
+    Extrae título y descripción por separado de la celda del programa.
+    El título es el texto del enlace o la primera línea.
+    La descripción es el texto secundario si existe.
+    """
+    # Intentar obtener título del enlace <a>
+    enlace = celda.find("a")
+    if enlace:
+        titulo = enlace.get_text(strip=True)
+    else:
+        # Sin enlace: primera línea del texto
+        texto_completo = celda.get_text(separator="\n", strip=True)
+        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
+        titulo = lineas[0] if lineas else ""
+
+    # Descripción: texto del párrafo o span adicional
+    desc = ""
+    for tag in celda.find_all(["p", "span", "small"]):
+        t = tag.get_text(strip=True)
+        if t and t != titulo:
+            desc = t
+            break
+
+    # Si no hay desc por tag, buscar segunda línea del texto
+    if not desc:
+        texto_completo = celda.get_text(separator="\n", strip=True)
+        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
+        if len(lineas) > 1:
+            # La segunda línea puede ser categoría o descripción
+            segunda = lineas[1]
+            # Si es muy corta probablemente es categoría (ej: "NFL"), la ignoramos
+            if len(segunda) > 30:
+                desc = segunda
+
+    return titulo, desc
+
+
 def raspar_canal_dia(slug, fecha, tz_offset):
     """Raspa los programas de un canal para una fecha concreta."""
     fecha_str = fecha.strftime("%Y-%m-%d")
@@ -81,42 +119,47 @@ def raspar_canal_dia(slug, fecha, tz_offset):
 
     soup = BeautifulSoup(resp.text, "html.parser")
     programas = []
+    vistos = set()  # Para deduplicar dentro del mismo día
 
-    # Buscar todas las filas de todas las tablas
     for tabla in soup.find_all("table"):
         for fila in tabla.find_all("tr"):
             celdas = fila.find_all("td")
-            
-            # Extraer textos no vacíos de las celdas
-            textos = []
-            for c in celdas:
-                t = c.get_text(separator=" ", strip=True)
-                if t:
-                    textos.append(t)
-            
-            # Necesitamos al menos 3 valores: hora_inicio, hora_fin, programa
+
+            # Extraer textos no vacíos
+            textos = [c.get_text(separator=" ", strip=True) for c in celdas]
+            textos = [t for t in textos if t]
+
             if len(textos) < 3:
                 continue
 
             hora_inicio_txt = textos[0]
             hora_fin_txt = textos[1]
-            titulo_raw = textos[2]
 
-            # Verificar que las dos primeras columnas sean horas válidas
             if not HORA_RE.match(hora_inicio_txt):
                 continue
             if not HORA_RE.match(hora_fin_txt):
                 continue
 
-            # Limpiar título: quedarse solo con la primera línea
-            titulo = titulo_raw.split("\n")[0].strip()
-            # Quitar descripciones cortas tipo "NFL" que vienen pegadas
-            titulo = re.split(r'\s{2,}', titulo)[0].strip()
+            # Extraer título y descripción de la celda correcta
+            celda_prog = None
+            idx = 0
+            for c in celdas:
+                if c.get_text(strip=True) == hora_inicio_txt:
+                    idx = list(celdas).index(c)
+                    break
+            # La celda del programa es la que viene después de hora_fin
+            celdas_con_texto = [c for c in celdas if c.get_text(strip=True)]
+            if len(celdas_con_texto) >= 3:
+                celda_prog = celdas_con_texto[2]
+            else:
+                continue
+
+            titulo, desc = extraer_titulo_y_desc(celda_prog)
 
             if not titulo:
                 continue
 
-            # Calcular fecha de fin (si empieza en PM y termina en AM → día siguiente)
+            # Calcular fecha de fin
             fin_fecha = fecha
             if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
                 fin_fecha = fecha + timedelta(days=1)
@@ -124,12 +167,21 @@ def raspar_canal_dia(slug, fecha, tz_offset):
             inicio_dt = convertir_hora(hora_inicio_txt, fecha, tz_offset)
             fin_dt = convertir_hora(hora_fin_txt, fin_fecha, tz_offset)
 
-            if inicio_dt and fin_dt:
-                programas.append({
-                    "titulo": titulo,
-                    "inicio": inicio_dt,
-                    "fin": fin_dt,
-                })
+            if not inicio_dt or not fin_dt:
+                continue
+
+            # Deduplicar por clave inicio+titulo
+            clave = f"{inicio_dt}|{titulo}"
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+
+            programas.append({
+                "titulo": titulo,
+                "desc": desc,
+                "inicio": inicio_dt,
+                "fin": fin_dt,
+            })
 
     print(f"  ✓ {len(programas)} programas para {fecha_str}")
     return programas
@@ -161,6 +213,10 @@ def generar_xml(canales_data):
             titulo_el = ET.SubElement(programme, "title")
             titulo_el.set("lang", "es")
             titulo_el.text = prog["titulo"]
+            if prog.get("desc"):
+                desc_el = ET.SubElement(programme, "desc")
+                desc_el.set("lang", "es")
+                desc_el.text = prog["desc"]
 
     xml_str = ET.tostring(tv, encoding="unicode")
     dom = minidom.parseString(xml_str)
