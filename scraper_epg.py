@@ -11,7 +11,7 @@ import time
 import re
 
 TZ_MADRID = ZoneInfo("Europe/Madrid")
-TZ_MEXICO_OFFSET = 6
+TZ_MEXICO_OFFSET = 5
 
 CANALES = [
     {"id": "FOX MX","nombre": "FOX MX","url_slug": "fox_mexico","logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png",},
