@@ -15,15 +15,15 @@ import re
 
 # ==============================================================================
 # ZONA HORARIA ESPAÑA - Detección automática
+# Cambio de hora: último domingo de marzo (→ +0200) y octubre (→ +0100)
 # ==============================================================================
 
 def ultimo_domingo(year, month):
     """Devuelve la fecha del último domingo de un mes dado."""
-    if month < 12:
-        ultimo_dia = datetime(year, month + 1, 1) - timedelta(days=1)
-    else:
-        ultimo_dia = datetime(year, 12, 31)
-    dias_hasta_domingo = (ultimo_dia.weekday() + 1) % 7
+    ultimo_dia = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year, 12, 31)
+    dias_hasta_domingo = ultimo_dia.weekday() + 1  # weekday(): lunes=0, domingo=6
+    if dias_hasta_domingo == 7:
+        dias_hasta_domingo = 0
     return ultimo_dia - timedelta(days=dias_hasta_domingo)
 
 def get_timezone_espana():
@@ -33,41 +33,41 @@ def get_timezone_espana():
     Invierno (CET): resto del año → +0100
     """
     ahora = datetime.utcnow()
-    inicio_verano = ultimo_domingo(ahora.year, 3)
-    fin_verano    = ultimo_domingo(ahora.year, 10)
+    inicio_verano = ultimo_domingo(ahora.year, 3)   # Último domingo de marzo
+    fin_verano    = ultimo_domingo(ahora.year, 10)  # Último domingo de octubre
 
     if inicio_verano <= ahora < fin_verano:
-        offset_str  = "+0200"
-        offset_horas = 2
+        offset = "+0200"
         nombre = "CEST (verano)"
     else:
-        offset_str  = "+0100"
-        offset_horas = 1
+        offset = "+0100"
         nombre = "CET (invierno)"
 
-    print(f"  Zona horaria España detectada: {offset_str} ({nombre})")
-    return offset_str, offset_horas
+    print(f"  Zona horaria España detectada: {offset} ({nombre})")
+    return offset
 
 # ==============================================================================
-# CONFIGURACIÓN
+# CONFIGURACIÓN - Añade o quita canales aquí
 # ==============================================================================
+
+TZ_MEXICO = "-0600"   # Hora en que la web publica los horarios (México Centro)
 
 CANALES = [
     {
-        "id": "fox_mexico",
-        "nombre": "Canal Fox México",
+        "id": "FOX MX",
+        "nombre": "FOX MX",
         "url_slug": "fox_mexico",
         "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png",
     },
     {
-        "id": "fox_plus_centroamerica",
-        "nombre": "FOX+ Centroamérica",
+        "id": "FOX+ MX",
+        "nombre": "FOX+ MX",
         "url_slug": "fox_plus_centroamerica",
         "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png",
     },
     {
-        "id": "5_mexico",
-        "nombre": "Canal 5 México (XHGC)",
+        "id": "Canal 5 MX",
+        "nombre": "Canal 5 MX",
         "url_slug": "5_mexico",
         "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png",
     },
@@ -87,11 +87,10 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 # FUNCIONES
 # ==============================================================================
 
-def convertir_hora_a_espana(hora_str, fecha, offset_str, offset_horas):
+def convertir_hora_a_espana(hora_str, fecha, tz_espana):
     """
-    Convierte hora de México (UTC-6) a hora de España y devuelve formato XMLTV.
-    México UTC-6: sumamos 6h para obtener UTC.
-    España UTC+N: sumamos N horas al UTC.
+    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2)
+    y devuelve formato XMLTV con el offset de España.
     """
     hora_str = hora_str.strip()
     try:
@@ -102,13 +101,14 @@ def convertir_hora_a_espana(hora_str, fecha, offset_str, offset_horas):
     # Hora local México
     dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
 
-    # → UTC (México Ciudad de México = UTC-6 en invierno, pero la web usa UTC-7)
-    dt_utc = dt_mexico + timedelta(hours=7)
+    # Convertir a UTC (México = UTC-6, sumamos 6 horas)
+    dt_utc = dt_mexico + timedelta(hours=6)
 
-    # → Hora España
+    # Convertir a hora España
+    offset_horas = int(tz_espana[:3])  # +01 o +02
     dt_espana = dt_utc + timedelta(hours=offset_horas)
 
-    return dt_espana.strftime("%Y%m%d%H%M%S") + " " + offset_str
+    return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_espana
 
 
 def extraer_titulo_y_desc(celda):
@@ -137,7 +137,7 @@ def extraer_titulo_y_desc(celda):
     return titulo, desc
 
 
-def raspar_canal_dia(slug, fecha, offset_str, offset_horas):
+def raspar_canal_dia(slug, fecha, tz_espana):
     """Raspa los programas de un canal para una fecha concreta."""
     fecha_str = fecha.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
@@ -164,7 +164,7 @@ def raspar_canal_dia(slug, fecha, offset_str, offset_horas):
                 continue
 
             hora_inicio_txt = textos[0]
-            hora_fin_txt    = textos[1]
+            hora_fin_txt = textos[1]
 
             if not HORA_RE.match(hora_inicio_txt):
                 continue
@@ -180,13 +180,13 @@ def raspar_canal_dia(slug, fecha, offset_str, offset_horas):
             if not titulo:
                 continue
 
-            # Fecha de fin en México
+            # Fecha de fin (si empieza PM y termina AM → día siguiente en México)
             fin_fecha = fecha
             if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
                 fin_fecha = fecha + timedelta(days=1)
 
-            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, offset_str, offset_horas)
-            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, offset_str, offset_horas)
+            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, tz_espana)
+            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, tz_espana)
 
             if not inicio_dt or not fin_dt:
                 continue
@@ -248,7 +248,8 @@ def generar_xml(canales_data):
 def main():
     print("═══ INICIANDO SCRAPER EPG GATOTV ═══")
 
-    offset_str, offset_horas = get_timezone_espana()
+    # Detectar zona horaria de España automáticamente
+    tz_espana = get_timezone_espana()
 
     hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     fechas = [hoy + timedelta(days=i) for i in range(DIAS)]
@@ -260,7 +261,7 @@ def main():
         todos_programas = []
 
         for fecha in fechas:
-            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, offset_str, offset_horas)
+            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, tz_espana)
             todos_programas.extend(programas_dia)
             time.sleep(1.5)
 
