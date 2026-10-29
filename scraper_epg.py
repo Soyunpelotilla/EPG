@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# ==============================================================================
-# Script: scraper_epg.py - V2 FIX
-# Fix: usa ZoneInfo para México -> España, corrige hueco 00:00-08:00
-# ==============================================================================
+# scraper_epg.py v3 FINAL
+# - Siempre escribe en hora España +0100/+0200, nunca +0000
+# - Funciona igual en tu PC y en 【entity-GitHub¦canonical_name=GitHub】 Actions
+# - GatoTV ya viene en ES desde España, lo tomamos tal cual
 
 import requests
 from bs4 import BeautifulSoup
@@ -13,195 +13,139 @@ import time
 import re
 from zoneinfo import ZoneInfo
 
-# ==============================================================================
-# CONFIGURACIÓN
-# ==============================================================================
-
 CANALES = [
-    {
-        "id": "FOX MX",
-        "nombre": "FOX MX",
-        "url_slug": "fox_mexico",
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png",
-    },
-    {
-        "id": "FOX+ MX",
-        "nombre": "FOX+ MX",
-        "url_slug": "fox_plus_centroamerica",
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png",
-    },
-    {
-        "id": "Canal 5 MX",
-        "nombre": "Canal 5 MX",
-        "url_slug": "5_mexico",
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png",
-    },
+    {"id": "FOX MX", "nombre": "FOX MX", "url_slug": "fox_mexico", "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png"},
+    {"id": "FOX+ MX", "nombre": "FOX+ MX", "url_slug": "fox_plus_centroamerica", "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png"},
+    {"id": "Canal 5 MX", "nombre": "Canal 5 MX", "url_slug": "5_mexico", "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"},
 ]
 
 DIAS = 3
-ZONA_MX = ZoneInfo("America/Mexico_City")
 ZONA_ES = ZoneInfo("Europe/Madrid")
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "es-MX,es;q=0.9",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+    "Accept-Language": "es-ES,es;q=0.9",
 }
-
 HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
-
-# ==============================================================================
-# FUNCIONES
-# ==============================================================================
-
-def convertir_hora(hora_str, fecha_mx_base):
-    """ Convierte '12:30 AM' en fecha_mx_base a datetime ES y MX """
-    try:
-        t = datetime.strptime(hora_str.strip(), "%I:%M %p")
-    except ValueError:
-        return None, None
-
-    dt_mx = fecha_mx_base.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-    # Hacemos aware
-    dt_mx = dt_mx.replace(tzinfo=ZONA_MX)
-    dt_es = dt_mx.astimezone(ZONA_ES)
-    return dt_mx, dt_es
 
 def extraer_titulo_y_desc(celda):
     enlace = celda.find("a")
     titulo = enlace.get_text(strip=True) if enlace else ""
     if not titulo:
-        texto = celda.get_text(separator="\n", strip=True)
-        titulo = [l.strip() for l in texto.split("\n") if l.strip()][0] if texto else ""
-    
+        txt = celda.get_text(separator="\n", strip=True)
+        titulo = [l for l in txt.split("\n") if l.strip()][0] if txt else ""
     desc = ""
-    for tag in celda.find_all(["p", "span", "small"]):
+    for tag in celda.find_all(["p","span","small"]):
         t = tag.get_text(strip=True)
         if t and t != titulo:
             desc = t
             break
     return titulo, desc
 
-def raspar_canal_dia(slug, fecha_mx):
-    fecha_str = fecha_mx.strftime("%Y-%m-%d")
-    url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
-    print(f"  → Raspando: {url}")
-
+def parse_hora_es(hora_str, fecha_base_es):
+    """Toma '12:00 AM' como hora de España directamente"""
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
-        resp.raise_for_status()
+        t = datetime.strptime(hora_str.strip(), "%I:%M %p")
+    except:
+        return None
+    dt = fecha_base_es.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+    # Forzamos +0100 / +0200 SIEMPRE
+    dt = dt.replace(tzinfo=ZONA_ES)
+    return dt
+
+def raspar_canal_dia(slug, fecha_es):
+    url = f"https://www.gatotv.com/canal/{slug}/{fecha_es.strftime('%Y-%m-%d')}"
+    print(f"  → {url}")
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=20)
+        r.raise_for_status()
     except Exception as e:
-        print(f"  ✗ Error: {e}")
+        print(f"  ✗ {e}")
         return []
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = BeautifulSoup(r.text, "html.parser")
     programas = []
-    vistos = set()
 
     for tabla in soup.find_all("table"):
         for fila in tabla.find_all("tr"):
-            celdas = fila.find_all("td")
-            textos = [c.get_text(strip=True) for c in celdas if c.get_text(strip=True)]
-            if len(textos) < 3:
-                continue
+            celdas = [c for c in fila.find_all("td") if c.get_text(strip=True)]
+            if len(celdas) < 3: continue
+            textos = [c.get_text(strip=True) for c in celdas]
+            if not HORA_RE.match(textos[0]) or not HORA_RE.match(textos[1]): continue
+            
+            titulo, desc = extraer_titulo_y_desc(celdas[2])
+            if not titulo: continue
 
-            h_ini_txt, h_fin_txt = textos[0], textos[1]
-            if not HORA_RE.match(h_ini_txt) or not HORA_RE.match(h_fin_txt):
-                continue
+            dt_ini = parse_hora_es(textos[0], fecha_es)
+            dt_fin = parse_hora_es(textos[1], fecha_es)
+            if not dt_ini or not dt_fin: continue
 
-            celdas_con_texto = [c for c in celdas if c.get_text(strip=True)]
-            if len(celdas_con_texto) < 3:
-                continue
+            # 00:00 - 00:30 -> fin <= inicio = día siguiente
+            if dt_fin <= dt_ini:
+                dt_fin += timedelta(days=1)
 
-            titulo, desc = extraer_titulo_y_desc(celdas_con_texto[2])
-            if not titulo:
-                continue
+            programas.append({"titulo": titulo, "desc": desc, "ini": dt_ini, "fin": dt_fin})
 
-            dt_mx_ini, dt_es_ini = convertir_hora(h_ini_txt, fecha_mx)
-            dt_mx_fin, dt_es_fin = convertir_hora(h_fin_txt, fecha_mx)
-
-            if not dt_mx_ini or not dt_mx_fin:
-                continue
-
-            # FIX del bug 00:00-00:30: si fin <= inicio, es día siguiente en MX
-            if dt_mx_fin <= dt_mx_ini:
-                dt_mx_fin += timedelta(days=1)
-                dt_es_fin += timedelta(days=1)
-
-            inicio_xml = dt_es_ini.strftime("%Y%m%d%H%M%S %z")
-            fin_xml = dt_es_fin.strftime("%Y%m%d%H%M%S %z")
-
-            clave = f"{inicio_xml}|{titulo}"
-            if clave in vistos:
-                continue
-            vistos.add(clave)
-
-            programas.append({
-                "titulo": titulo,
-                "desc": desc,
-                "inicio": inicio_xml,
-                "fin": fin_xml,
-                "dt_es_ini": dt_es_ini # para ordenar
-            })
-
-    programas.sort(key=lambda x: x["dt_es_ini"])
-    print(f"  ✓ {len(programas)} programas para {fecha_str}")
-    return programas
+    programas.sort(key=lambda x: x["ini"])
+    # Filtro anti-solape
+    filtrados = []
+    for p in programas:
+        if not filtrados or p["ini"] >= filtrados[-1]["fin"]:
+            filtrados.append(p)
+    
+    resultado = []
+    for p in filtrados:
+        resultado.append({
+            "titulo": p["titulo"],
+            "desc": p["desc"],
+            "inicio": p["ini"].strftime("%Y%m%d%H%M%S %z"),
+            "fin": p["fin"].strftime("%Y%m%d%H%M%S %z"),
+        })
+    print(f"  ✓ {len(resultado)} programas")
+    return resultado
 
 def generar_xml(canales_data):
     tv = ET.Element("tv")
-    tv.set("generator-info-name", "scraper_epg.py v2")
-    tv.set("generator-info-url", "https://github.com")
-
+    tv.set("generator-info-name", "scraper_epg.py v3")
     for canal in canales_data:
         ch = ET.SubElement(tv, "channel")
         ch.set("id", canal["id"])
-        dn = ET.SubElement(ch, "display-name")
-        dn.text = canal["nombre"]
+        ET.SubElement(ch, "display-name").text = canal["nombre"]
         if canal.get("logo"):
-            icon = ET.SubElement(ch, "icon")
-            icon.set("src", canal["logo"])
-
+            ET.SubElement(ch, "icon").set("src", canal["logo"])
     for canal in canales_data:
         for prog in canal["programas"]:
-            programme = ET.SubElement(tv, "programme")
-            programme.set("start", prog["inicio"])
-            programme.set("stop", prog["fin"])
-            programme.set("channel", canal["id"])
-            titulo_el = ET.SubElement(programme, "title")
-            titulo_el.set("lang", "es")
-            titulo_el.text = prog["titulo"]
+            pr = ET.SubElement(tv, "programme")
+            pr.set("start", prog["inicio"])
+            pr.set("stop", prog["fin"])
+            pr.set("channel", canal["id"])
+            t = ET.SubElement(pr, "title")
+            t.set("lang", "es")
+            t.text = prog["titulo"]
             if prog.get("desc"):
-                desc_el = ET.SubElement(programme, "desc")
-                desc_el.set("lang", "es")
-                desc_el.text = prog["desc"]
-
+                d = ET.SubElement(pr, "desc")
+                d.set("lang", "es")
+                d.text = prog["desc"]
     xml_str = ET.tostring(tv, encoding="unicode")
-    dom = minidom.parseString(xml_str)
-    return dom.toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
+    return minidom.parseString(xml_str).toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
 
 def main():
-    print("═══ INICIANDO SCRAPER EPG GATOTV V2 ═══")
-    print(f"  Zona MX: {ZONA_MX} | Zona ES: {ZONA_ES}")
-
-    hoy_mx = datetime.now(ZONA_MX).replace(hour=0, minute=0, second=0, microsecond=0)
-    fechas = [hoy_mx + timedelta(days=i) for i in range(DIAS)]
+    print("═══ SCRAPER V3 - SIEMPRE +0100 ═══")
+    # BASE SIEMPRE EN ESPAÑA, aunque 【entity-GitHub¦canonical_name=GitHub】 esté en UTC
+    hoy_es = datetime.now(ZONA_ES).replace(hour=0, minute=0, second=0, microsecond=0)
+    fechas = [hoy_es + timedelta(days=i) for i in range(DIAS)]
 
     canales_data = []
     for canal in CANALES:
-        print(f"\n─── Canal: {canal['nombre']} ───")
+        print(f"\n─── {canal['nombre']} ───")
         todos = []
-        for fecha in fechas:
-            todos.extend(raspar_canal_dia(canal["url_slug"], fecha))
-            time.sleep(1.5)
-        # Limpia el campo auxiliar
-        for p in todos: p.pop("dt_es_ini", None)
+        for f in fechas:
+            todos.extend(raspar_canal_dia(canal["url_slug"], f))
+            time.sleep(1.2)
         canales_data.append({**canal, "programas": todos})
-        print(f"  ═► Total: {len(todos)} programas en {DIAS} días")
 
-    xml_output = generar_xml(canales_data)
-    with open("guide.xml", "w", encoding="UTF-8") as f:
-        f.write(xml_output)
-    print(f"\n✓ guide.xml generado")
+    open("guide.xml", "w", encoding="UTF-8").write(generar_xml(canales_data))
+    print("\n✓ guide.xml generado en +0100")
 
 if __name__ == "__main__":
     main()
