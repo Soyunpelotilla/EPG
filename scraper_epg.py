@@ -1,159 +1,122 @@
 #!/usr/bin/env python3
-# Script: scraper_epg.py - VERSIÓN CORREGIDA
-# Problema original: GatoTV te geolocaliza. Si lo abres desde España te muestra
-# la hora ya en +0100, pero tu script asumía que siempre venía en -0600 y le sumaba +7h.
-# Resultado: horarios desplazados 7 horas y programas que no coinciden.
-
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 import time, re
 
-# Zonas reales
-TZ_MEXICO = ZoneInfo("America/Mexico_City")       # -06:00
-TZ_CENTRO = ZoneInfo("America/Costa_Rica")        # -06:00 (sin horario verano)
-TZ_ESPANA = ZoneInfo("Europe/Madrid")             # +01:00 invierno / +02:00 verano
+TZ_MADRID = ZoneInfo("Europe/Madrid")
+print("═══ SCRAPER EPG GATOTV - HORA ESPAÑA DIRECTА ═══")
 
-CANALES = [
-    {
-        "id": "FOX MX",
-        "nombre": "FOX MX",
-        "url_slug": "fox_mexico",
-        "tz_origen": TZ_MEXICO,
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png",
-    },
-    {
-        "id": "FOX+ MX",
-        "nombre": "FOX+ MX",
-        "url_slug": "fox_plus_centroamerica",
-        "tz_origen": TZ_CENTRO,  # ¡Este es Centroamérica, no México!
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png",
-    },
-    {
-        "id": "Canal 5 MX",
-        "nombre": "Canal 5 MX",
-        "url_slug": "5_mexico",
-        "tz_origen": TZ_MEXICO,
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png",
-    },
+CANALES=[
+ {"id":"FOX MX","nombre":"FOX MX","url_slug":"fox_mexico","logo":"https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png"},
+ {"id":"FOX+ MX","nombre":"FOX+ MX","url_slug":"fox_plus_centroamerica","logo":"https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png"},
+ {"id":"Canal 5 MX","nombre":"Canal 5 MX","url_slug":"5_mexico","logo":"https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"},
 ]
 
-DIAS = 3
-HEADERS = {
-    "User-Agent": "Mozilla/5.0",
-    "Accept-Language": "es-CR,es;q=0.9",  # Fuerza que no te geolocalice a España
-}
-HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.I)
+HEADERS={"User-Agent":"Mozilla/5.0 Chrome/120"}
+HORA_RE=re.compile(r"^\d{1,2}:\d{2}$",re.IGNORECASE)
 
-def parse_hora_mexico(hora_str, fecha_local, tz_origen):
-    """hora_str como '3:30 PM' + fecha_local (date) en tz_origen -> datetime aware"""
-    t = datetime.strptime(hora_str.strip(), "%I:%M %p")
-    dt = datetime(fecha_local.year, fecha_local.month, fecha_local.day,
-                  t.hour, t.minute, tzinfo=tz_origen)
-    return dt
+def convertir_hora(hora_str, fecha_base):
+    t = datetime.strptime(hora_str.strip(), "%H:%M")
+    dt_local = datetime(fecha_base.year, fecha_base.month, fecha_base.day, t.hour, t.minute, tzinfo=TZ_MADRID)
+    return dt_local.strftime("%Y%m%d%H%M%S %z")
 
-def raspar_canal_dia(slug, tz_origen, fecha_origen):
-    fecha_str = fecha_origen.strftime("%Y-%m-%d")
-    url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
-    print(f"  → {url} (origen {tz_origen})")
+def raspar(slug, fecha, session):
+    url=f"https://www.gatotv.com/canal/{slug}/{fecha.strftime('%Y-%m-%d')}"
     try:
-        r = requests.get(url, headers=HEADERS, timeout=20)
+        r=session.get(url,headers=HEADERS,timeout=20)
         r.raise_for_status()
     except Exception as e:
-        print(f"  ✗ {e}")
+        print(f"✗ {e}")
         return []
-
-    soup = BeautifulSoup(r.text, "html.parser")
-    programas = []
-    vistos = set()
-
-    for tabla in soup.find_all("table"):
-        for fila in tabla.find_all("tr"):
-            celdas = [c for c in fila.find_all("td") if c.get_text(strip=True)]
-            if len(celdas) < 3:
-                continue
-            hi = celdas[0].get_text(strip=True)
-            hf = celdas[1].get_text(strip=True)
-            if not HORA_RE.match(hi) or not HORA_RE.match(hf):
-                continue
+    soup=BeautifulSoup(r.text,"html.parser")
+    progs=[]
+    
+    for tr in soup.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 2:
+            continue
             
-            # titulo
-            celda_prog = celdas[2]
-            titulo = celda_prog.find("a").get_text(strip=True) if celda_prog.find("a") else celda_prog.get_text(separator=" ", strip=True).split("\n")[0]
-            if not titulo:
+        horas_en_fila = []
+        for td in tds:
+            txt_td = td.get_text(separator=" ", strip=True)
+            m = re.findall(r"\b(\d{2}:\d{2})\b", txt_td)
+            if m:
+                horas_en_fila.extend(m)
+                
+        if len(horas_en_fila) < 2:
+            continue
+            
+        hora_ini = horas_en_fila[0]
+        hora_fin = horas_en_fila[1]
+        
+        titulo = ""
+        for td in tds:
+            txt_c = td.get_text(separator=" ", strip=True)
+            if re.match(r"^\d{1,2}:\d{2}$", txt_c) or txt_c == "-" or not txt_c or "Horarios para" in txt_c:
                 continue
-
-            # Si cruza medianoche en origen
-            fin_fecha = fecha_origen
-            if "PM" in hi.upper() and "AM" in hf.upper():
-                fin_fecha = fecha_origen + timedelta(days=1)
-
-            dt_ini_origen = parse_hora_mexico(hi, fecha_origen, tz_origen)
-            dt_fin_origen = parse_hora_mexico(hf, fin_fecha, tz_origen)
-
-            # Convertir a España
-            dt_ini_esp = dt_ini_origen.astimezone(TZ_ESPANA)
-            dt_fin_esp = dt_fin_origen.astimezone(TZ_ESPANA)
-
-            # XMLTV requiere +0100 / +0200
-            inicio_str = dt_ini_esp.strftime("%Y%m%d%H%M%S %z")
-            fin_str = dt_fin_esp.strftime("%Y%m%d%H%M%S %z")
-
-            clave = f"{inicio_str}|{titulo}"
-            if clave in vistos:
-                continue
-            vistos.add(clave)
-
-            programas.append({"titulo": titulo, "inicio": inicio_str, "fin": fin_str, "dt_sort": dt_ini_esp})
-
-    # Ordenar por hora real
-    programas.sort(key=lambda x: x["dt_sort"])
-    for p in programas:
-        p.pop("dt_sort", None)
-    print(f"  ✓ {len(programas)} programas")
-    return programas
-
-def generar_xml(canales_data):
-    tv = ET.Element("tv", {"generator-info-name": "scraper_epg_fixed"})
-    for canal in canales_data:
-        ch = ET.SubElement(tv, "channel", id=canal["id"])
-        ET.SubElement(ch, "display-name").text = canal["nombre"]
-        if canal["logo"]:
-            ET.SubElement(ch, "icon", src=canal["logo"])
-    for canal in canales_data:
-        for prog in canal["programas"]:
-            pr = ET.SubElement(tv, "programme", start=prog["inicio"], stop=prog["fin"], channel=canal["id"])
-            ET.SubElement(pr, "title", lang="es").text = prog["titulo"]
-    xml_str = ET.tostring(tv, encoding="unicode")
-    return minidom.parseString(xml_str).toprettyxml(indent="  ", encoding="UTF-8").decode()
+                
+            a_tag = td.find("a")
+            if a_tag and a_tag.get_text(strip=True):
+                titulo = a_tag.get_text(strip=True)
+                break
+            else:
+                lineas = [l.strip() for l in td.get_text(separator="\n", strip=True).split("\n") if l.strip()]
+                lineas_validas = [l for l in lineas if not re.match(r"^\d{1,2}:\d{2}$", l) and l != "-"]
+                if lineas_validas:
+                    titulo = lineas_validas[0]
+                    break
+                    
+        titulo = " ".join(titulo.split())
+        # Evitar que el título sea una hora o texto de cabecera
+        if not titulo or re.match(r"^\d{1,2}:\d{2}$", titulo) or "Horarios de Programación" in titulo or "Horarios para" in titulo:
+            continue
+            
+        fin_fecha = fecha + timedelta(days=1) if hora_ini > hora_fin else fecha
+        ini = convertir_hora(hora_ini, fecha)
+        fin = convertir_hora(hora_fin, fin_fecha)
+        if ini and fin:
+            progs.append({"titulo": titulo, "inicio": ini, "fin": fin})
+            
+    progs.sort(key=lambda x: x["inicio"])
+    return progs
 
 def main():
-    print("=== SCRAPER CORREGIDO ===")
-    # Usamos fecha de origen (México/Centroamérica) no UTC
-    hoy_centro = datetime.now(TZ_CENTRO).replace(hour=0, minute=0, second=0, microsecond=0)
-    fechas = {
-        c["id"]: [hoy_centro.astimezone(c["tz_origen"]).replace(tzinfo=None) for _ in range(DIAS)]
-        for c in CANALES
-    }
-    # Simplificado: 3 días desde hoy en cada zona origen
-    canales_data = []
+    hoy=datetime.now(TZ_MADRID).replace(hour=0,minute=0,second=0,microsecond=0)
+    fechas=[hoy+timedelta(days=i) for i in range(-1,3)]
+    print(f"Fechas Madrid: {[f.strftime('%Y-%m-%d') for f in fechas]}")
+    session=requests.Session()
+    all_data=[]
     for canal in CANALES:
-        print(f"\n--- {canal['nombre']} ---")
-        todos = []
-        base = datetime.now(canal["tz_origen"]).replace(hour=0, minute=0, second=0, microsecond=0)
-        for i in range(DIAS):
-            f = (base + timedelta(days=i)).replace(tzinfo=None)
-            # pasamos date sin tzinfo pero parse_hora lo pone
-            todos.extend(raspar_canal_dia(canal["url_slug"], canal["tz_origen"], datetime(f.year, f.month, f.day)))
-            time.sleep(1)
-        canales_data.append({**canal, "programas": todos})
+        todos=[]
+        for f in fechas:
+            todos.extend(raspar(canal["url_slug"],f,session))
+            time.sleep(0.6)
+        uniq={}
+        for p in sorted(todos,key=lambda x:x["inicio"]):
+            uniq[f"{p['inicio']}|{p['titulo']}"]=p
+        all_data.append({**canal,"programas":list(uniq.values())})
+    tv=ET.Element("tv")
+    tv.set("generator-info-name","scraper_epg.py (Hora España directa)")
+    for c in all_data:
+        ch=ET.SubElement(tv,"channel")
+        ch.set("id",c["id"])
+        ET.SubElement(ch,"display-name").text=c["nombre"]
+        if c.get("logo"): ET.SubElement(ch,"icon").set("src",c["logo"])
+    for c in all_data:
+        for p in sorted(c["programas"],key=lambda x:x["inicio"]):
+            pr=ET.SubElement(tv,"programme")
+            pr.set("start",p["inicio"])
+            pr.set("stop",p["fin"])
+            pr.set("channel",c["id"])
+            ET.SubElement(pr,"title",lang="es").text=p["titulo"]
+    xml_str=ET.tostring(tv,encoding="unicode")
+    pretty=minidom.parseString(xml_str).toprettyxml(indent="  ",encoding="UTF-8").decode("UTF-8")
+    pretty="\n".join([l for l in pretty.split("\n") if l.strip()])
+    open("guide.xml","w",encoding="UTF-8").write(pretty)
+    print("✓ guide.xml generado con hora directa de España")
 
-    xml = generar_xml(canales_data)
-    open("guide_fixed.xml","w",encoding="utf-8").write(xml)
-    print("\n✓ guide_fixed.xml generado")
-
-if __name__ == "__main__":
-    main()
+if __name__=="__main__": main()
