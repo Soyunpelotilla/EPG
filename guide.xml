@@ -12,133 +12,40 @@
     <display-name>Canal 5 MX</display-name>
     <icon src="https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"/>
   </channel>
-  <programme start="20261029110000 +0100" stop="20261029120000 +0100" channel="FOX MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261029120000 +0100" stop="20261029130000 +0100" channel="FOX MX">
-    <title lang="es">11:00 AM</title>
-  </programme>
-  <programme start="20261029123000 +0100" stop="20261029130000 +0100" channel="FOX MX">
-    <title lang="es">11:30 PM</title>
-  </programme>
   <programme start="20261029130000 +0100" stop="20261030110000 +0100" channel="FOX MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261030120000 +0100" stop="20261030130000 +0100" channel="FOX MX">
-    <title lang="es">11:00 PM</title>
-  </programme>
-  <programme start="20261030130000 +0100" stop="20261030130000 +0100" channel="FOX MX">
+  <programme start="20261030130000 +0100" stop="20261031120000 +0100" channel="FOX MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261031111500 +0100" stop="20261031114500 +0100" channel="FOX MX">
-    <title lang="es">10:15 AM</title>
-  </programme>
-  <programme start="20261031120000 +0100" stop="20261031130000 +0100" channel="FOX MX">
-    <title lang="es">11:00 PM</title>
-  </programme>
-  <programme start="20261031130000 +0100" stop="20261101111500 +0100" channel="FOX MX">
+  <programme start="20261031130000 +0100" stop="20261031130000 +0100" channel="FOX MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261101110000 +0100" stop="20261101120000 +0100" channel="FOX MX">
-    <title lang="es">10:00 PM</title>
-  </programme>
-  <programme start="20261101120000 +0100" stop="20261101130000 +0100" channel="FOX MX">
-    <title lang="es">11:00 AM</title>
-  </programme>
-  <programme start="20261101130000 +0100" stop="20261102120000 +0100" channel="FOX MX">
+  <programme start="20261101130000 +0100" stop="20261102110000 +0100" channel="FOX MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261029110000 +0100" stop="20261029130000 +0100" channel="FOX+ MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261029130000 +0100" stop="20261029133000 +0100" channel="FOX+ MX">
+  <programme start="20261029130000 +0100" stop="20261030120000 +0100" channel="FOX+ MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261029130000 +0100" stop="20261029133000 +0100" channel="FOX+ MX">
-    <title lang="es">12:00 AM</title>
-  </programme>
-  <programme start="20261030110000 +0100" stop="20261030130000 +0100" channel="FOX+ MX">
+  <programme start="20261030130000 +0100" stop="20261031120000 +0100" channel="FOX+ MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261030120000 +0100" stop="20261030130000 +0100" channel="FOX+ MX">
-    <title lang="es">11:00 PM</title>
-  </programme>
-  <programme start="20261030130000 +0100" stop="20261030133000 +0100" channel="FOX+ MX">
-    <title lang="es">12:00 PM</title>
-  </programme>
-  <programme start="20261031110000 +0100" stop="20261031113000 +0100" channel="FOX+ MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261031113000 +0100" stop="20261031120000 +0100" channel="FOX+ MX">
-    <title lang="es">10:30 AM</title>
-  </programme>
-  <programme start="20261031120000 +0100" stop="20261031130000 +0100" channel="FOX+ MX">
-    <title lang="es">11:00 PM</title>
-  </programme>
-  <programme start="20261031130000 +0100" stop="20261031133000 +0100" channel="FOX+ MX">
+  <programme start="20261031130000 +0100" stop="20261101110000 +0100" channel="FOX+ MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261031130000 +0100" stop="20261031133000 +0100" channel="FOX+ MX">
-    <title lang="es">12:00 AM</title>
-  </programme>
-  <programme start="20261101110000 +0100" stop="20261101130000 +0100" channel="FOX+ MX">
-    <title lang="es">10:00 PM</title>
-  </programme>
-  <programme start="20261101113000 +0100" stop="20261101120000 +0100" channel="FOX+ MX">
-    <title lang="es">10:30 AM</title>
-  </programme>
-  <programme start="20261101130000 +0100" stop="20261102113000 +0100" channel="FOX+ MX">
+  <programme start="20261101130000 +0100" stop="20261102110000 +0100" channel="FOX+ MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261029110000 +0100" stop="20261029113000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261029113000 +0100" stop="20261029120000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:30 AM</title>
-  </programme>
-  <programme start="20261029113000 +0100" stop="20261029133000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:30 PM</title>
-  </programme>
-  <programme start="20261029115500 +0100" stop="20261030110000 +0100" channel="Canal 5 MX">
+  <programme start="20261029130000 +0100" stop="20261030110000 +0100" channel="Canal 5 MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261029120000 +0100" stop="20261029130000 +0100" channel="Canal 5 MX">
-    <title lang="es">11:00 AM</title>
-  </programme>
-  <programme start="20261030110000 +0100" stop="20261030113000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261030113000 +0100" stop="20261030133000 +0100" channel="Canal 5 MX">
+  <programme start="20261030123000 +0100" stop="20261030133000 +0100" channel="Canal 5 MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261030113000 +0100" stop="20261030133000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:30 PM</title>
-  </programme>
-  <programme start="20261030113000 +0100" stop="20261030120000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:30 AM</title>
-  </programme>
-  <programme start="20261030120000 +0100" stop="20261030130000 +0100" channel="Canal 5 MX">
-    <title lang="es">11:00 AM</title>
-  </programme>
-  <programme start="20261031110000 +0100" stop="20261031113000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261031113000 +0100" stop="20261031133000 +0100" channel="Canal 5 MX">
+  <programme start="20261031123000 +0100" stop="20261101113000 +0100" channel="Canal 5 MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261031113000 +0100" stop="20261031133000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:30 PM</title>
-  </programme>
-  <programme start="20261031113000 +0100" stop="20261031123000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:30 AM</title>
-  </programme>
-  <programme start="20261101110000 +0100" stop="20261101133000 +0100" channel="Canal 5 MX">
-    <title lang="es">10:00 AM</title>
-  </programme>
-  <programme start="20261101111000 +0100" stop="20261101134500 +0100" channel="Canal 5 MX">
-    <title lang="es">10:10 PM</title>
-  </programme>
-  <programme start="20261101120500 +0100" stop="20261102110000 +0100" channel="Canal 5 MX">
+  <programme start="20261101110500 +0100" stop="20261101131500 +0100" channel="Canal 5 MX">
     <title lang="es">Horarios de Programación</title>
   </programme>
 </tv>
