@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="scraper_epg.py" generator-info-url="https://github.com">
+  <channel id="FOX MX">
+    <display-name>FOX MX</display-name>
+    <icon src="https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png"/>
+  </channel>
+  <channel id="FOX+ MX">
+    <display-name>FOX+ MX</display-name>
+    <icon src="https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png"/>
+  </channel>
+  <channel id="Canal 5 MX">
+    <display-name>Canal 5 MX</display-name>
+    <icon src="https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"/>
+  </channel>
+  <programme start="20261030120000 +0100" stop="20261031110000 +0100" channel="FOX MX">
+    <title lang="es">‹Jueves 29</title>
+  </programme>
+  <programme start="20261030110000 +0100" stop="20261030124500 +0100" channel="FOX MX">
+    <title lang="es">11:00 AM</title>
+  </programme>
+  <programme start="20261030100000 +0100" stop="20261030110000 +0100" channel="FOX MX">
+    <title lang="es">10:00 PM</title>
+  </programme>
+  <programme start="20261030110000 +0100" stop="20261030120000 +0100" channel="FOX MX">
+    <title lang="es">11:00 PM</title>
+  </programme>
+  <programme start="20261031120000 +0100" stop="20261031120000 +0100" channel="FOX MX">
+    <title lang="es">‹Viernes 30</title>
+  </programme>
+  <programme start="20261031100000 +0100" stop="20261031110000 +0100" channel="FOX MX">
+    <title lang="es">10:00 PM</title>
+  </programme>
+  <programme start="20261031110000 +0100" stop="20261031120000 +0100" channel="FOX MX">
+    <title lang="es">11:00 PM</title>
+  </programme>
+  <programme start="20261101120000 +0100" stop="20261102100000 +0100" channel="FOX MX">
+    <title lang="es">‹Sábado 31</title>
+  </programme>
+  <programme start="20261101100000 +0100" stop="20261101110000 +0100" channel="FOX MX">
+    <title lang="es">10:00 AM</title>
+  </programme>
+  <programme start="20261101110000 +0100" stop="20261101120000 +0100" channel="FOX MX">
+    <title lang="es">11:00 AM</title>
+  </programme>
+  <programme start="20261101100000 +0100" stop="20261101110000 +0100" channel="FOX MX">
+    <title lang="es">10:00 PM</title>
+  </programme>
+  <programme start="20261030120000 +0100" stop="20261031110000 +0100" channel="FOX+ MX">
+    <title lang="es">‹Jueves 29</title>
+  </programme>
+  <programme start="20261030110000 +0100" stop="20261030113000 +0100" channel="FOX+ MX">
+    <title lang="es">11:00 AM</title>
+  </programme>
+  <programme start="20261030100000 +0100" stop="20261030110000 +0100" channel="FOX+ MX">
+    <title lang="es">10:00 PM</title>
+  </programme>
+  <programme start="20261030110000 +0100" stop="20261030113000 +0100" channel="FOX+ MX">
+    <title lang="es">11:00 PM</title>
+  </programme>
+  <programme start="20261030113000 +0100" stop="20261030120000 +0100" channel="FOX+ MX">
+    <title lang="es">11:30 PM</title>
+  </programme>
+  <programme start="20261031120000 +0100" stop="20261101100000 +0100" channel="FOX+ MX">
+    <title lang="es">‹Viernes 30</title>
+  </programme>
+  <programme start="20261031100000 +0100" stop="20261031120000 +0100" channel="FOX+ MX">
+    <title lang="es">10:00 AM</title>
+  </programme>
+  <programme start="20261031120000 +0100" stop="20261031123000 +0100" channel="FOX+ MX">
+    <title lang="es">12:00 PM</title>
+  </programme>
+  <programme start="20261031100000 +0100" stop="20261031110000 +0100" channel="FOX+ MX">
+    <title lang="es">10:00 PM</title>
+  </programme>
+  <programme start="20261031110000 +0100" stop="20261031120000 +0100" channel="FOX+ MX">
+    <title lang="es">11:00 PM</title>
+  </programme>
+  <programme start="20261101120000 +0100" stop="20261102100000 +0100" channel="FOX+ MX">
+    <title lang="es">‹Sábado 31</title>
+  </programme>
+  <programme start="20261101100000 +0100" stop="20261101120000 +0100" channel="FOX+ MX">
+    <title lang="es">10:00 AM</title>
+  </programme>
+  <programme start="20261101120000 +0100" stop="20261101123000 +0100" channel="FOX+ MX">
+    <title lang="es">12:00 PM</title>
+  </programme>
+  <programme start="20261030113000 +0100" stop="20261030123000 +0100" channel="Canal 5 MX">
+    <title lang="es">‹Jueves 29</title>
+  </programme>
+  <programme start="20261030113000 +0100" stop="20261030123000 +0100" channel="Canal 5 MX">
+    <title lang="es">11:30 PM</title>
+  </programme>
+  <programme start="20261030100000 +0100" stop="20261030110000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:00 AM</title>
+  </programme>
+  <programme start="20261030110000 +0100" stop="20261030123000 +0100" channel="Canal 5 MX">
+    <title lang="es">11:00 AM</title>
+  </programme>
+  <programme start="20261031113000 +0100" stop="20261101103000 +0100" channel="Canal 5 MX">
+    <title lang="es">‹Viernes 30</title>
+  </programme>
+  <programme start="20261031103000 +0100" stop="20261031122500 +0100" channel="Canal 5 MX">
+    <title lang="es">10:30 AM</title>
+  </programme>
+  <programme start="20261031100500 +0100" stop="20261031121500 +0100" channel="Canal 5 MX">
+    <title lang="es">10:05 PM</title>
+  </programme>
+  <programme start="20261101100500 +0100" stop="20261101121500 +0100" channel="Canal 5 MX">
+    <title lang="es">‹Sábado 31</title>
+  </programme>
+  <programme start="20261101100500 +0100" stop="20261101121500 +0100" channel="Canal 5 MX">
+    <title lang="es">10:05 PM</title>
+  </programme>
+</tv>
