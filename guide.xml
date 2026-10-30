@@ -46,6 +46,12 @@
     <title lang="es">Horarios para elsábado 31 de octubre de 2026</title>
   </programme>
   <programme start="20261101180000 +0100" stop="20261101190000 +0100" channel="FOX MX">
+    <title lang="es">Fox NFL Sunday MX</title>
+  </programme>
+  <programme start="20261101180000 +0100" stop="20261101190000 +0100" channel="FOX MX">
+    <title lang="es">Cuadro titular</title>
+  </programme>
+  <programme start="20261101190000 +0100" stop="20261101200000 +0100" channel="FOX MX">
     <title lang="es">FOX 365</title>
   </programme>
   <programme start="20261101200000 +0100" stop="20261102180000 +0100" channel="FOX MX">
@@ -78,13 +84,13 @@
   <programme start="20261031200000 +0100" stop="20261101180000 +0100" channel="FOX+ MX">
     <title lang="es">Horarios para elsábado 31 de octubre de 2026</title>
   </programme>
-  <programme start="20261101180000 +0100" stop="20261101180000 +0100" channel="FOX+ MX">
+  <programme start="20261101180000 +0100" stop="20261101190000 +0100" channel="FOX+ MX">
     <title lang="es">Horarios para eldomingo 1 de noviembre de 2026</title>
   </programme>
-  <programme start="20261101180000 +0100" stop="20261101183000 +0100" channel="FOX+ MX">
+  <programme start="20261101190000 +0100" stop="20261101193000 +0100" channel="FOX+ MX">
     <title lang="es">PL Netbusters</title>
   </programme>
-  <programme start="20261101183000 +0100" stop="20261101190000 +0100" channel="FOX+ MX">
+  <programme start="20261101193000 +0100" stop="20261101200000 +0100" channel="FOX+ MX">
     <title lang="es">PL Stories</title>
   </programme>
   <programme start="20261029183000 +0100" stop="20261029200000 +0100" channel="Canal 5 MX">
@@ -117,7 +123,13 @@
   <programme start="20261031190000 +0100" stop="20261101182500 +0100" channel="Canal 5 MX">
     <title lang="es">Horarios para elsábado 31 de octubre de 2026</title>
   </programme>
-  <programme start="20261101193000 +0100" stop="20261101193000 +0100" channel="Canal 5 MX">
+  <programme start="20261101183000 +0100" stop="20261101203000 +0100" channel="Canal 5 MX">
+    <title lang="es">La Razón de Estar Contigo</title>
+  </programme>
+  <programme start="20261101184500 +0100" stop="20261101190000 +0100" channel="Canal 5 MX">
+    <title lang="es">Se rentan Cuartos</title>
+  </programme>
+  <programme start="20261101193000 +0100" stop="20261102183000 +0100" channel="Canal 5 MX">
     <title lang="es">Horarios para eldomingo 1 de noviembre de 2026</title>
   </programme>
 </tv>
