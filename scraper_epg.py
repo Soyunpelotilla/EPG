@@ -144,54 +144,62 @@ def raspar_canal_dia(slug, fecha, tz_espana):
     programas = []
     vistos = set()
 
-    for tabla in soup.find_all("table"):
-        for fila in tabla.find_all("tr"):
-            celdas = fila.find_all("td")
-            textos = [c.get_text(separator=" ", strip=True) for c in celdas]
-            textos = [t for t in textos if t]
-
-            if len(textos) < 3:
+    for tr in soup.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 2:
+            continue
+            
+        horas_en_fila = []
+        for td in tds:
+            txt_td = td.get_text(separator=" ", strip=True)
+            m = re.findall(r"\b(\d{2}:\d{2})\b", txt_td)
+            if m:
+                horas_en_fila.extend(m)
+                
+        if len(horas_en_fila) < 2:
+            continue
+            
+        hora_ini = horas_en_fila[0]
+        hora_fin = horas_en_fila[1]
+        
+        titulo = ""
+        for td in tds:
+            txt_c = td.get_text(separator=" ", strip=True)
+            if re.match(r"^\d{2}:\d{2}$", txt_c) or txt_c == "-" or not txt_c or "Horarios para" in txt_c:
                 continue
+            a_tag = td.find("a")
+            if a_tag and a_tag.get_text(strip=True):
+                titulo = a_tag.get_text(strip=True)
+                break
+            else:
+                lineas = [l.strip() for l in td.get_text(separator="\n", strip=True).split("\n") if l.strip()]
+                lineas_validas = [l for l in lineas if not re.match(r"^\d{2}:\d{2}$", l) and l != "-"]
+                if lineas_validas:
+                    titulo = lineas_validas[0]
+                    break
+                    
+        titulo = " ".join(titulo.split())
+        if not titulo or "Horarios de Programación" in titulo or "Horarios para" in titulo:
+            continue
+            
+        fin_fecha = fecha + timedelta(days=1) if hora_ini > hora_fin else fecha
+        inicio_dt = convertir_hora_a_espana(hora_ini, fecha, tz_espana)
+        fin_dt = convertir_hora_a_espana(hora_fin, fin_fecha, tz_espana)
 
-            hora_inicio_txt = textos[0]
-            hora_fin_txt = textos[1]
+        if not inicio_dt or not fin_dt:
+            continue
 
-            if not HORA_RE.match(hora_inicio_txt):
-                continue
-            if not HORA_RE.match(hora_fin_txt):
-                continue
+        clave = f"{inicio_dt}|{titulo}"
+        if clave in vistos:
+            continue
+        vistos.add(clave)
 
-            celdas_con_texto = [c for c in celdas if c.get_text(strip=True)]
-            if len(celdas_con_texto) < 3:
-                continue
-            celda_prog = celdas_con_texto[2]
-            titulo, desc = extraer_titulo_y_desc(celda_prog)
-
-            if not titulo:
-                continue
-
-            # Fecha de fin (si empieza PM y termina AM → día siguiente en México)
-            fin_fecha = fecha
-            if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
-                fin_fecha = fecha + timedelta(days=1)
-
-            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, tz_espana)
-            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, tz_espana)
-
-            if not inicio_dt or not fin_dt:
-                continue
-
-            clave = f"{inicio_dt}|{titulo}"
-            if clave in vistos:
-                continue
-            vistos.add(clave)
-
-            programas.append({
-                "titulo": titulo,
-                "desc": desc,
-                "inicio": inicio_dt,
-                "fin": fin_dt,
-            })
+        programas.append({
+            "titulo": titulo,
+            "desc": "",
+            "inicio": inicio_dt,
+            "fin": fin_dt,
+        })
 
     print(f"  ✓ {len(programas)} programas para {fecha_str}")
     return programas
