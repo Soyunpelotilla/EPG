@@ -2,27 +2,23 @@
 # ==============================================================================
 # Script: scraper_epg.py
 # Función: Raspa programación de gatotv.com y genera XML en formato XMLTV
-# Zona horaria: gatotv.com geolocaliza la IP y devuelve hora local del runner.
-#   - En local (España) y en GitHub Actions (Europa): devuelve hora española.
-#   - La conversión es por tanto 0h de diferencia; solo se formatea con el
-#     offset de España correcto (+0100 invierno / +0200 verano).
+# Usa Playwright para ejecutar JavaScript y obtener la página completa.
+# gatotv.com geolocaliza la IP → devuelve hora española directamente.
 # ==============================================================================
 
-import requests
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-import time
+from bs4 import BeautifulSoup
 import re
+import time
 
 # ==============================================================================
 # ZONA HORARIA ESPAÑA - Detección automática
-# Cambio de hora: último domingo de marzo (→ +0200) y octubre (→ +0100)
 # ==============================================================================
 
 def ultimo_domingo(year, month):
-    """Devuelve la fecha del último domingo de un mes dado."""
     ultimo_dia = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year, 12, 31)
     dias_hasta_domingo = ultimo_dia.weekday() + 1
     if dias_hasta_domingo == 7:
@@ -30,26 +26,18 @@ def ultimo_domingo(year, month):
     return ultimo_dia - timedelta(days=dias_hasta_domingo)
 
 def get_timezone_espana():
-    """
-    Devuelve el offset de España según la fecha actual.
-    Verano (CEST): +0200 | Invierno (CET): +0100
-    """
     ahora = datetime.utcnow()
     inicio_verano = ultimo_domingo(ahora.year, 3)
     fin_verano    = ultimo_domingo(ahora.year, 10)
-
     if inicio_verano <= ahora < fin_verano:
-        offset = "+0200"
-        nombre = "CEST (verano)"
+        offset, nombre = "+0200", "CEST (verano)"
     else:
-        offset = "+0100"
-        nombre = "CET (invierno)"
-
+        offset, nombre = "+0100", "CET (invierno)"
     print(f"  Zona horaria España detectada: {offset} ({nombre})")
     return offset
 
 # ==============================================================================
-# CONFIGURACIÓN - Añade o quita canales aquí
+# CONFIGURACIÓN
 # ==============================================================================
 
 CANALES = [
@@ -74,13 +62,6 @@ CANALES = [
 ]
 
 DIAS = 3
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "es-MX,es;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-}
-
 HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 
 # ==============================================================================
@@ -88,28 +69,22 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 # ==============================================================================
 
 def convertir_hora(hora_str, fecha, tz_espana):
-    """
-    La web ya devuelve la hora en zona española (geolocalización por IP).
-    Solo parseamos y formateamos con el offset correcto de España.
-    """
+    """La web ya devuelve hora española. Solo parseamos y formateamos."""
     hora_str = hora_str.strip()
     try:
         t = datetime.strptime(hora_str, "%I:%M %p")
     except ValueError:
         return None
-
     dt = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
     return dt.strftime("%Y%m%d%H%M%S") + " " + tz_espana
 
 
 def extraer_titulo_y_desc(celda):
-    """Extrae título y descripción de la celda del programa."""
     enlace = celda.find("a")
     if enlace:
         titulo = enlace.get_text(strip=True)
     else:
-        texto_completo = celda.get_text(separator="\n", strip=True)
-        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
+        lineas = [l.strip() for l in celda.get_text(separator="\n", strip=True).split("\n") if l.strip()]
         titulo = lineas[0] if lineas else ""
 
     desc = ""
@@ -120,28 +95,29 @@ def extraer_titulo_y_desc(celda):
             break
 
     if not desc:
-        texto_completo = celda.get_text(separator="\n", strip=True)
-        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
+        lineas = [l.strip() for l in celda.get_text(separator="\n", strip=True).split("\n") if l.strip()]
         if len(lineas) > 1 and len(lineas[1]) > 30:
             desc = lineas[1]
 
     return titulo, desc
 
 
-def raspar_canal_dia(slug, fecha, tz_espana):
-    """Raspa los programas de un canal para una fecha concreta."""
+def raspar_canal_dia(page, slug, fecha, tz_espana):
+    """Raspa un canal para una fecha usando Playwright (página ya renderizada)."""
     fecha_str = fecha.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
     print(f"  → Raspando: {url}")
 
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
-        resp.raise_for_status()
+        page.goto(url, wait_until="networkidle", timeout=30000)
+        # Esperar a que aparezca la tabla de programación
+        page.wait_for_selector("table", timeout=15000)
     except Exception as e:
-        print(f"  ✗ Error: {e}")
+        print(f"  ✗ Error cargando página: {e}")
         return []
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    html = page.content()
+    soup = BeautifulSoup(html, "html.parser")
     programas = []
     vistos = set()
 
@@ -165,13 +141,12 @@ def raspar_canal_dia(slug, fecha, tz_espana):
             celdas_con_texto = [c for c in celdas if c.get_text(strip=True)]
             if len(celdas_con_texto) < 3:
                 continue
-            celda_prog = celdas_con_texto[2]
-            titulo, desc = extraer_titulo_y_desc(celda_prog)
+            titulo, desc = extraer_titulo_y_desc(celdas_con_texto[2])
 
             if not titulo:
                 continue
 
-            # Fecha de fin: si empieza en PM y termina en AM → día siguiente
+            # Cruce de medianoche: empieza PM y termina AM → fin es día siguiente
             fin_fecha = fecha
             if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
                 fin_fecha = fecha + timedelta(days=1)
@@ -180,6 +155,10 @@ def raspar_canal_dia(slug, fecha, tz_espana):
             fin_dt    = convertir_hora(hora_fin_txt, fin_fecha, tz_espana)
 
             if not inicio_dt or not fin_dt:
+                continue
+
+            # Ignorar programas con duración cero
+            if inicio_dt == fin_dt:
                 continue
 
             clave = f"{inicio_dt}|{titulo}"
@@ -199,7 +178,6 @@ def raspar_canal_dia(slug, fecha, tz_espana):
 
 
 def generar_xml(canales_data):
-    """Genera el XML en formato XMLTV."""
     tv = ET.Element("tv")
     tv.set("generator-info-name", "scraper_epg.py")
     tv.set("generator-info-url", "https://github.com")
@@ -237,9 +215,7 @@ def generar_xml(canales_data):
 # ==============================================================================
 
 def main():
-    print("═══ INICIANDO SCRAPER EPG GATOTV ═══")
-    print("  Nota: gatotv.com geolocaliza la IP → devuelve hora española directamente")
-
+    print("═══ INICIANDO SCRAPER EPG GATOTV (Playwright) ═══")
     tz_espana = get_timezone_espana()
 
     hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -247,22 +223,33 @@ def main():
 
     canales_data = []
 
-    for canal in CANALES:
-        print(f"\n─── Canal: {canal['nombre']} ───")
-        todos_programas = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            locale="es-ES",
+            timezone_id="Europe/Madrid",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        )
+        page = context.new_page()
 
-        for fecha in fechas:
-            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, tz_espana)
-            todos_programas.extend(programas_dia)
-            time.sleep(1.5)
+        for canal in CANALES:
+            print(f"\n─── Canal: {canal['nombre']} ───")
+            todos_programas = []
 
-        canales_data.append({
-            "id": canal["id"],
-            "nombre": canal["nombre"],
-            "logo": canal["logo"],
-            "programas": todos_programas,
-        })
-        print(f"  ═► Total: {len(todos_programas)} programas en {DIAS} días")
+            for fecha in fechas:
+                programas_dia = raspar_canal_dia(page, canal["url_slug"], fecha, tz_espana)
+                todos_programas.extend(programas_dia)
+                time.sleep(1)
+
+            canales_data.append({
+                "id": canal["id"],
+                "nombre": canal["nombre"],
+                "logo": canal["logo"],
+                "programas": todos_programas,
+            })
+            print(f"  ═► Total: {len(todos_programas)} programas en {DIAS} días")
+
+        browser.close()
 
     print("\n─── GENERANDO XML ───")
     xml_output = generar_xml(canales_data)
