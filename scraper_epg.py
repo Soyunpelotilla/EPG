@@ -89,8 +89,7 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 
 def convertir_hora_a_espana(hora_str, fecha, tz_espana):
     """
-    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2)
-    y devuelve formato XMLTV con el offset de España.
+    Usa directamente la hora de GatoTV (ya en hora española) con su offset.
     """
     hora_str = hora_str.strip()
     try:
@@ -98,16 +97,7 @@ def convertir_hora_a_espana(hora_str, fecha, tz_espana):
     except ValueError:
         return None
 
-    # Hora local México
-    dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-
-    # Convertir a UTC (México = UTC-6, sumamos 6 horas)
-    dt_utc = dt_mexico + timedelta(hours=6)
-
-    # Convertir a hora España
-    offset_horas = int(tz_espana[:3])  # +01 o +02
-    dt_espana = dt_utc + timedelta(hours=offset_horas)
-
+    dt_espana = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
     return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_espana
 
 
