@@ -33,12 +33,28 @@ def raspar(slug, fecha, session):
     soup=BeautifulSoup(r.text,"html.parser")
     progs=[]
     for tr in soup.find_all("tr"):
-        texto_tr = tr.get_text(separator="|", strip=True)
-        horas_encontradas = re.findall(r"\b(\d{2}:\d{2})\b", texto_tr)
-        if len(horas_encontradas) < 2:
+        tds = [td for td in tr.find_all("td")]
+        if len(tds) < 2:
             continue
-        hora_ini = horas_encontradas[0]
-        hora_fin = horas_encontradas[1]
+        
+        # Buscar celdas que contengan horas HH:MM
+        horas_en_fila = []
+        for td in tds:
+            txt = td.get_text(strip=True)
+            m = re.findall(r"^(\d{2}:\d{2})$", txt)
+            if m:
+                horas_en_fila.extend(m)
+                
+        # Si no hay suficientes horas en las celdas directas, buscar en el texto general del tr
+        if len(horas_en_fila) < 2:
+            texto_tr = tr.get_text(separator="|", strip=True)
+            horas_en_fila = re.findall(r"\b(\d{2}:\d{2})\b", texto_tr)
+            
+        if len(horas_en_fila) < 2:
+            continue
+            
+        hora_ini = horas_en_fila[0]
+        hora_fin = horas_en_fila[1]
         
         celdas=[c for c in tr.find_all("td") if c.get_text(strip=True)]
         if len(celdas)<3: continue
