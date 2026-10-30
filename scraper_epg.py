@@ -3,10 +3,6 @@
 # Script: scraper_epg.py
 # Función: Raspa programación de gatotv.com y genera XML en formato XMLTV
 # Zona horaria: España (UTC+1 invierno / UTC+2 verano), detectada automáticamente
-# Nota: gatotv.com devuelve las horas ya en la zona horaria del visitante,
-#       por lo que desde GitHub Actions (UTC) se reciben en UTC. Sin embargo,
-#       al acceder con IP de España (geolocalización), la web devuelve hora
-#       española directamente → no se necesita conversión.
 # ==============================================================================
 
 import requests
@@ -54,6 +50,8 @@ def get_timezone_espana():
 # CONFIGURACIÓN - Añade o quita canales aquí
 # ==============================================================================
 
+TZ_MEXICO = "-0600"   # Hora en que la web publica los horarios (México Centro)
+
 CANALES = [
     {
         "id": "FOX MX",
@@ -79,7 +77,7 @@ DIAS = 3
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "es-ES,es;q=0.9",
+    "Accept-Language": "es-MX,es;q=0.9",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
@@ -89,10 +87,10 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 # FUNCIONES
 # ==============================================================================
 
-def hora_a_xmltv(hora_str, fecha, tz_espana):
+def convertir_hora_a_espana(hora_str, fecha, tz_espana):
     """
-    La web ya devuelve las horas en zona horaria española (geolocalización).
-    Solo formateamos al estándar XMLTV con el offset de España.
+    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2)
+    y devuelve formato XMLTV con el offset de España.
     """
     hora_str = hora_str.strip()
     try:
@@ -100,8 +98,17 @@ def hora_a_xmltv(hora_str, fecha, tz_espana):
     except ValueError:
         return None
 
-    dt = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-    return dt.strftime("%Y%m%d%H%M%S") + " " + tz_espana
+    # Hora local México
+    dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+
+    # Convertir a UTC (México = UTC-6, sumamos 6 horas)
+    dt_utc = dt_mexico + timedelta(hours=6)
+
+    # Convertir a hora España
+    offset_horas = int(tz_espana[:3])  # +01 o +02
+    dt_espana = dt_utc + timedelta(hours=offset_horas)
+
+    return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_espana
 
 
 def extraer_titulo_y_desc(celda):
@@ -173,13 +180,13 @@ def raspar_canal_dia(slug, fecha, tz_espana):
             if not titulo:
                 continue
 
-            # Si el programa termina en AM y empieza en PM, el fin es el día siguiente
+            # Fecha de fin (si empieza PM y termina AM → día siguiente en México)
             fin_fecha = fecha
             if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
                 fin_fecha = fecha + timedelta(days=1)
 
-            inicio_dt = hora_a_xmltv(hora_inicio_txt, fecha, tz_espana)
-            fin_dt    = hora_a_xmltv(hora_fin_txt, fin_fecha, tz_espana)
+            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, tz_espana)
+            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, tz_espana)
 
             if not inicio_dt or not fin_dt:
                 continue
@@ -240,10 +247,8 @@ def generar_xml(canales_data):
 
 def main():
     print("═══ INICIANDO SCRAPER EPG GATOTV ═══")
-    import sys
-    print(f"  Python: {sys.version}")
-    print(f"  Fecha UTC: {datetime.utcnow()}")
 
+    # Detectar zona horaria de España automáticamente
     tz_espana = get_timezone_espana()
 
     hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -280,10 +285,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        import traceback
-        print(f"ERROR FATAL: {e}")
-        traceback.print_exc()
-        raise
+    main()
