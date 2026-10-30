@@ -15,9 +15,9 @@ CANALES=[
  {"id":"Canal 5 MX","nombre":"Canal 5 MX","url_slug":"5_mexico","logo":"https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"},
 ]
 HEADERS={"User-Agent":"Mozilla/5.0 Chrome/120"}
-HORA_RE=re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$",re.IGNORECASE)
+HORA_RE=re.compile(r"^\d{1,2}:\d{2}$",re.IGNORECASE)
 def convertir_hora(hora_str, fecha_base):
-    t=datetime.strptime(hora_str.strip(),"%I:%M %p")
+    t=datetime.strptime(hora_str.strip(),"%H:%M")
     fecha_mx=datetime(fecha_base.year,fecha_base.month,fecha_base.day,t.hour,t.minute)
     dt_utc=fecha_mx+timedelta(hours=TZ_MEXICO_OFFSET)
     dt_utc=dt_utc.replace(tzinfo=ZoneInfo("UTC"))
@@ -34,14 +34,27 @@ def raspar(slug, fecha, session):
     progs=[]
     for tr in soup.find_all("tr"):
         tds=[c.get_text(strip=True) for c in tr.find_all("td") if c.get_text(strip=True)]
-        if len(tds)<3: continue
-        if not HORA_RE.match(tds[0]) or not HORA_RE.match(tds[1]): continue
+        if len(tds)<2: continue
+        # GatoTV muestra formato 24h ej: "10:00" y "- " y "12:00"
+        horas_encontradas = []
+        for td in tds:
+            m = re.findall(r"^\d{1,2}:\d{2}$", td)
+            if m:
+                horas_encontradas.extend(m)
+        if len(horas_encontradas) < 2:
+            # Intentar buscar por filas o celdas de texto exacto de hora
+            continue
+        # Tomar la primera y segunda hora como inicio y fin
+        hora_ini = horas_encontradas[0]
+        hora_fin = horas_encontradas[1]
+        
         celdas=[c for c in tr.find_all("td") if c.get_text(strip=True)]
+        if len(celdas)<3: continue
         titulo=celdas[2].find("a").get_text(strip=True) if celdas[2].find("a") else celdas[2].get_text(strip=True).split("\n")[0]
         titulo=titulo.strip()
-        fin_fecha=fecha+timedelta(days=1) if "PM" in tds[0].upper() and "AM" in tds[1].upper() else fecha
-        ini=convertir_hora(tds[0],fecha)
-        fin=convertir_hora(tds[1],fin_fecha)
+        fin_fecha=fecha+timedelta(days=1) if hora_ini > hora_fin else fecha
+        ini=convertir_hora(hora_ini,fecha)
+        fin=convertir_hora(hora_fin,fin_fecha)
         if ini and fin:
             progs.append({"titulo":titulo,"inicio":ini,"fin":fin})
     progs.sort(key=lambda x:x["inicio"])
