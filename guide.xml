@@ -13,123 +13,132 @@
     <icon src="https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"/>
   </channel>
   <programme start="20261029180000 +0100" stop="20261029190000 +0100" channel="FOX MX">
-    <title lang="es">Cuadro titular</title>
-  </programme>
-  <programme start="20261029181500 +0100" stop="20261029184500 +0100" channel="FOX MX">
-    <title lang="es">Bundesliga weekly</title>
+    <title lang="es">10:00 AM</title>
   </programme>
   <programme start="20261029190000 +0100" stop="20261029200000 +0100" channel="FOX MX">
-    <title lang="es">FOX 365</title>
+    <title lang="es">11:00 AM</title>
   </programme>
-  <programme start="20261029200000 +0100" stop="20261030181500 +0100" channel="FOX MX">
-    <title lang="es">Horarios para eljueves 29 de octubre de 2026</title>
+  <programme start="20261029193000 +0100" stop="20261029200000 +0100" channel="FOX MX">
+    <title lang="es">11:30 PM</title>
   </programme>
-  <programme start="20261030180000 +0100" stop="20261030190000 +0100" channel="FOX MX">
-    <title lang="es">Cuadro titular</title>
+  <programme start="20261029200000 +0100" stop="20261030180000 +0100" channel="FOX MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
   <programme start="20261030190000 +0100" stop="20261030200000 +0100" channel="FOX MX">
-    <title lang="es">FOX 365</title>
+    <title lang="es">11:00 PM</title>
   </programme>
-  <programme start="20261030200000 +0100" stop="20261031184500 +0100" channel="FOX MX">
-    <title lang="es">Horarios para elviernes 30 de octubre de 2026</title>
+  <programme start="20261030200000 +0100" stop="20261030200000 +0100" channel="FOX MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261031180000 +0100" stop="20261031204500 +0100" channel="FOX MX">
-    <title lang="es">Bayern Munich vs. Borussia Dort</title>
-  </programme>
-  <programme start="20261031180000 +0100" stop="20261031190000 +0100" channel="FOX MX">
-    <title lang="es">Cuadro titular</title>
+  <programme start="20261031181500 +0100" stop="20261031184500 +0100" channel="FOX MX">
+    <title lang="es">10:15 AM</title>
   </programme>
   <programme start="20261031190000 +0100" stop="20261031200000 +0100" channel="FOX MX">
-    <title lang="es">FOX 365</title>
+    <title lang="es">11:00 PM</title>
   </programme>
-  <programme start="20261031200000 +0100" stop="20261101180000 +0100" channel="FOX MX">
-    <title lang="es">Horarios para elsábado 31 de octubre de 2026</title>
-  </programme>
-  <programme start="20261101180000 +0100" stop="20261101190000 +0100" channel="FOX MX">
-    <title lang="es">Fox NFL Sunday MX</title>
+  <programme start="20261031200000 +0100" stop="20261101181500 +0100" channel="FOX MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
   <programme start="20261101180000 +0100" stop="20261101190000 +0100" channel="FOX MX">
-    <title lang="es">Cuadro titular</title>
+    <title lang="es">10:00 PM</title>
   </programme>
   <programme start="20261101190000 +0100" stop="20261101200000 +0100" channel="FOX MX">
-    <title lang="es">FOX 365</title>
+    <title lang="es">11:00 AM</title>
   </programme>
-  <programme start="20261101200000 +0100" stop="20261102180000 +0100" channel="FOX MX">
-    <title lang="es">Horarios para eldomingo 1 de noviembre de 2026</title>
-  </programme>
-  <programme start="20261029180000 +0100" stop="20261029190000 +0100" channel="FOX+ MX">
-    <title lang="es">Horarios para eljueves 29 de octubre de 2026</title>
+  <programme start="20261101200000 +0100" stop="20261102190000 +0100" channel="FOX MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
   <programme start="20261029180000 +0100" stop="20261029200000 +0100" channel="FOX+ MX">
-    <title lang="es">Juventus (Ita) vs. Stade Rennais (Fra)UEFA Europa League</title>
+    <title lang="es">10:00 AM</title>
+  </programme>
+  <programme start="20261029200000 +0100" stop="20261029203000 +0100" channel="FOX+ MX">
+    <title lang="es">Horarios de Programación</title>
+  </programme>
+  <programme start="20261029200000 +0100" stop="20261029203000 +0100" channel="FOX+ MX">
+    <title lang="es">12:00 AM</title>
   </programme>
   <programme start="20261030180000 +0100" stop="20261030200000 +0100" channel="FOX+ MX">
-    <title lang="es">Al Nassr Riyadh vs. Al KholoodLiga Profesional Saudí</title>
+    <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261030193000 +0100" stop="20261030200000 +0100" channel="FOX+ MX">
-    <title lang="es">PL Netbusters</title>
-  </programme>
-  <programme start="20261030200000 +0100" stop="20261031193000 +0100" channel="FOX+ MX">
-    <title lang="es">Horarios para elviernes 30 de octubre de 2026</title>
+  <programme start="20261030190000 +0100" stop="20261030200000 +0100" channel="FOX+ MX">
+    <title lang="es">11:00 PM</title>
   </programme>
   <programme start="20261030200000 +0100" stop="20261030203000 +0100" channel="FOX+ MX">
-    <title lang="es">PL Stories</title>
+    <title lang="es">12:00 PM</title>
   </programme>
   <programme start="20261031180000 +0100" stop="20261031183000 +0100" channel="FOX+ MX">
-    <title lang="es">Highlights Fox</title>
+    <title lang="es">10:00 AM</title>
   </programme>
-  <programme start="20261031183000 +0100" stop="20261031203000 +0100" channel="FOX+ MX">
-    <title lang="es">Bayern Múnich Vs. Borussia Dortmund</title>
+  <programme start="20261031183000 +0100" stop="20261031190000 +0100" channel="FOX+ MX">
+    <title lang="es">10:30 AM</title>
   </programme>
-  <programme start="20261031200000 +0100" stop="20261101180000 +0100" channel="FOX+ MX">
-    <title lang="es">Horarios para elsábado 31 de octubre de 2026</title>
+  <programme start="20261031190000 +0100" stop="20261031200000 +0100" channel="FOX+ MX">
+    <title lang="es">11:00 PM</title>
   </programme>
-  <programme start="20261101180000 +0100" stop="20261101190000 +0100" channel="FOX+ MX">
-    <title lang="es">Horarios para eldomingo 1 de noviembre de 2026</title>
+  <programme start="20261031200000 +0100" stop="20261031203000 +0100" channel="FOX+ MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261101190000 +0100" stop="20261101193000 +0100" channel="FOX+ MX">
-    <title lang="es">PL Netbusters</title>
+  <programme start="20261031200000 +0100" stop="20261031203000 +0100" channel="FOX+ MX">
+    <title lang="es">12:00 AM</title>
   </programme>
-  <programme start="20261101193000 +0100" stop="20261101200000 +0100" channel="FOX+ MX">
-    <title lang="es">PL Stories</title>
+  <programme start="20261101180000 +0100" stop="20261101200000 +0100" channel="FOX+ MX">
+    <title lang="es">10:00 PM</title>
   </programme>
-  <programme start="20261029183000 +0100" stop="20261029200000 +0100" channel="Canal 5 MX">
-    <title lang="es">Scooby-Doo y ¿Quién Crees Tú?</title>
+  <programme start="20261101183000 +0100" stop="20261101190000 +0100" channel="FOX+ MX">
+    <title lang="es">10:30 AM</title>
+  </programme>
+  <programme start="20261101200000 +0100" stop="20261102183000 +0100" channel="FOX+ MX">
+    <title lang="es">Horarios de Programación</title>
+  </programme>
+  <programme start="20261029180000 +0100" stop="20261029183000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:00 AM</title>
   </programme>
   <programme start="20261029183000 +0100" stop="20261029190000 +0100" channel="Canal 5 MX">
-    <title lang="es">Contacto deportivoEn Vivo</title>
+    <title lang="es">10:30 AM</title>
   </programme>
-  <programme start="20261029190000 +0100" stop="20261030183000 +0100" channel="Canal 5 MX">
-    <title lang="es">Horarios para eljueves 29 de octubre de 2026</title>
+  <programme start="20261029183000 +0100" stop="20261029203000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:30 PM</title>
+  </programme>
+  <programme start="20261029185500 +0100" stop="20261030180000 +0100" channel="Canal 5 MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
   <programme start="20261029190000 +0100" stop="20261029200000 +0100" channel="Canal 5 MX">
-    <title lang="es">Infomerciales</title>
+    <title lang="es">11:00 AM</title>
   </programme>
-  <programme start="20261030183000 +0100" stop="20261030192500 +0100" channel="Canal 5 MX">
-    <title lang="es">El Show de Patricio Estrella</title>
+  <programme start="20261030180000 +0100" stop="20261030183000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:00 AM</title>
   </programme>
-  <programme start="20261030192500 +0100" stop="20261030203000 +0100" channel="Canal 5 MX">
-    <title lang="es">Fórmula 1 GP México</title>
+  <programme start="20261030183000 +0100" stop="20261030203000 +0100" channel="Canal 5 MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261030200000 +0100" stop="20261031183000 +0100" channel="Canal 5 MX">
-    <title lang="es">Horarios para elviernes 30 de octubre de 2026</title>
+  <programme start="20261030183000 +0100" stop="20261030203000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:30 PM</title>
   </programme>
-  <programme start="20261031181500 +0100" stop="20261031193000 +0100" channel="Canal 5 MX">
-    <title lang="es">El Demoledor</title>
+  <programme start="20261030183000 +0100" stop="20261030190000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:30 AM</title>
   </programme>
-  <programme start="20261031182500 +0100" stop="20261031193000 +0100" channel="Canal 5 MX">
-    <title lang="es">Fórmula 1 GP México</title>
+  <programme start="20261030190000 +0100" stop="20261030200000 +0100" channel="Canal 5 MX">
+    <title lang="es">11:00 AM</title>
   </programme>
-  <programme start="20261031190000 +0100" stop="20261101182500 +0100" channel="Canal 5 MX">
-    <title lang="es">Horarios para elsábado 31 de octubre de 2026</title>
+  <programme start="20261031180000 +0100" stop="20261031183000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:00 AM</title>
   </programme>
-  <programme start="20261101183000 +0100" stop="20261101203000 +0100" channel="Canal 5 MX">
-    <title lang="es">La Razón de Estar Contigo</title>
+  <programme start="20261031183000 +0100" stop="20261031203000 +0100" channel="Canal 5 MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
-  <programme start="20261101184500 +0100" stop="20261101190000 +0100" channel="Canal 5 MX">
-    <title lang="es">Se rentan Cuartos</title>
+  <programme start="20261031183000 +0100" stop="20261031203000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:30 PM</title>
   </programme>
-  <programme start="20261101193000 +0100" stop="20261102183000 +0100" channel="Canal 5 MX">
-    <title lang="es">Horarios para eldomingo 1 de noviembre de 2026</title>
+  <programme start="20261031183000 +0100" stop="20261031193000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:30 AM</title>
+  </programme>
+  <programme start="20261101180000 +0100" stop="20261101203000 +0100" channel="Canal 5 MX">
+    <title lang="es">10:00 AM</title>
+  </programme>
+  <programme start="20261101181000 +0100" stop="20261101204500 +0100" channel="Canal 5 MX">
+    <title lang="es">10:10 PM</title>
+  </programme>
+  <programme start="20261101190500 +0100" stop="20261102180000 +0100" channel="Canal 5 MX">
+    <title lang="es">Horarios de Programación</title>
   </programme>
 </tv>
