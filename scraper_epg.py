@@ -33,20 +33,16 @@ def raspar(slug, fecha, session):
     soup=BeautifulSoup(r.text,"html.parser")
     progs=[]
     
-    # GatoTV organiza la programación en filas <tr> dentro de las tablas de horarios
     for tr in soup.find_all("tr"):
-        # Buscamos celdas con la clase o estructura de hora y programa
         tds = tr.find_all("td")
         if len(tds) < 2:
             continue
             
-        # Extraer texto de todas las celdas de la fila
-        textos_tds = [td.get_text(separator=" ", strip=True) for td in tds]
-        
-        # Buscamos si hay horas en formato HH:MM en la fila
+        # Buscar horas en las celdas de la fila
         horas_en_fila = []
-        for txt in textos_tds:
-            m = re.findall(r"\b(\d{2}:\d{2})\b", txt)
+        for td in tds:
+            txt_td = td.get_text(separator=" ", strip=True)
+            m = re.findall(r"\b(\d{2}:\d{2})\b", txt_td)
             if m:
                 horas_en_fila.extend(m)
                 
@@ -56,25 +52,29 @@ def raspar(slug, fecha, session):
         hora_ini = horas_en_fila[0]
         hora_fin = horas_en_fila[1]
         
-        # El título del programa suele estar en la celda del medio (índice 1 o 2) o en un enlace <a>
+        # En GatoTV, la celda del programa suele ser la segunda (índice 1) o la que contiene el título/enlace
         titulo = ""
         for td in tds:
-            # Ignoramos celdas que sean solo horas o guiones
-            txt_c = " ".join(td.get_text(separator=" ", strip=True).split())
-            if re.match(r"^\d{2}:\d{2}$", txt_c) or txt_c == "-" or not txt_c:
+            txt_c = td.get_text(separator=" ", strip=True)
+            # Ignorar celdas de hora pura o guiones
+            if re.match(r"^\d{2}:\d{2}$", txt_c) or txt_c == "-" or not txt_c or "Horarios para" in txt_c:
                 continue
-            
-            # Buscar enlace o texto principal
+                
+            # Si hay un enlace <a>, tiene el nombre limpio del programa
             a_tag = td.find("a")
             if a_tag and a_tag.get_text(strip=True):
                 titulo = a_tag.get_text(strip=True)
+                break
             else:
-                # Tomamos la primera línea de texto limpio de la celda
-                titulo = txt_c.split("\n")[0]
-            break
-            
+                # Tomar la primera línea antes de saltos de línea (para evitar subtítulos o ligas secundarias)
+                lineas = [l.strip() for l in td.get_text(separator="\n", strip=True).split("\n") if l.strip()]
+                lineas_validas = [l for l in lineas if not re.match(r"^\d{2}:\d{2}$", l) and l != "-"]
+                if lineas_validas:
+                    titulo = lineas_validas[0]
+                    break
+                    
         titulo = " ".join(titulo.split())
-        if not titulo or "Horarios para" in titulo or re.match(r"^\d{2}:\d{2}", titulo):
+        if not titulo or "Horarios de Programación" in titulo or "Horarios para" in titulo:
             continue
             
         fin_fecha = fecha + timedelta(days=1) if hora_ini > hora_fin else fecha
