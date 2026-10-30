@@ -47,10 +47,109 @@ def get_timezone_espana():
     return offset
 
 # ==============================================================================
-# CONFIGURACIÓN - Añade o quita canales aquí
+# DETECCIÓN DE ZONA HORARIA DE LA WEB
+# Raspa un programa de hoy, lo compara con la hora UTC actual y deduce el offset
 # ==============================================================================
 
-TZ_MEXICO = "-0600"   # Hora en que la web publica los horarios (México Centro)
+OFFSETS_CONOCIDOS = {
+    -8: "-0800",  # PST (Pacífico)
+    -7: "-0700",  # MST (Montaña)
+    -6: "-0600",  # CST (México Centro) ← el más probable
+    -5: "-0500",  # EST (México Este / Colombia)
+    0:  "+0000",  # UTC (GitHub Actions por defecto)
+    1:  "+0100",  # CET (España invierno)
+    2:  "+0200",  # CEST (España verano)
+}
+
+def detectar_tz_web():
+    """
+    Detecta en qué zona horaria está devolviendo las horas gatotv.com.
+
+    Estrategia:
+      1. Raspa la página de hoy de un canal de referencia.
+      2. Recoge TODAS las horas de los programas (AM/PM).
+      3. Convierte cada hora a minutos desde medianoche.
+      4. Calcula la hora UTC actual también en minutos.
+      5. Para cada offset conocido, comprueba si alguna hora raspada
+         encaja con "ahora ± 30 min" al restar el offset.
+      6. El offset con más coincidencias gana.
+
+    Devuelve el offset como string (p.ej. "-0600") o None si no se detecta.
+    """
+    print("\n─── DETECTANDO ZONA HORARIA DE LA WEB ───")
+
+    slug_prueba = "fox_mexico"
+    hoy = datetime.utcnow()
+    fecha_str = hoy.strftime("%Y-%m-%d")
+    url = f"https://www.gatotv.com/canal/{slug_prueba}/{fecha_str}"
+    print(f"  URL de prueba: {url}")
+    print(f"  Hora UTC actual: {hoy.strftime('%H:%M')}")
+
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"  ✗ No se pudo conectar para detectar TZ: {e}")
+        return None
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    hora_re = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
+
+    horas_raspadas = []
+    for tabla in soup.find_all("table"):
+        for fila in tabla.find_all("tr"):
+            celdas = fila.find_all("td")
+            textos = [c.get_text(separator=" ", strip=True) for c in celdas]
+            textos = [t for t in textos if t]
+            if len(textos) >= 2 and hora_re.match(textos[0]):
+                horas_raspadas.append(textos[0])
+
+    if not horas_raspadas:
+        print("  ✗ No se encontraron horas en la página.")
+        return None
+
+    print(f"  Horas encontradas en la web ({len(horas_raspadas)}): {horas_raspadas[:8]}{'...' if len(horas_raspadas) > 8 else ''}")
+
+    # Convertir horas raspadas a minutos desde medianoche
+    def hora_a_minutos(hora_str):
+        try:
+            t = datetime.strptime(hora_str.strip(), "%I:%M %p")
+            return t.hour * 60 + t.minute
+        except ValueError:
+            return None
+
+    minutos_raspados = [hora_a_minutos(h) for h in horas_raspadas]
+    minutos_raspados = [m for m in minutos_raspados if m is not None]
+
+    # Minutos UTC actuales
+    minutos_utc = hoy.hour * 60 + hoy.minute
+
+    # Para cada offset, contar cuántas horas raspadas corresponden a "ahora"
+    VENTANA = 60  # ± 60 minutos alrededor de la hora actual
+    scores = {}
+    for offset_h, offset_str in OFFSETS_CONOCIDOS.items():
+        minutos_web = (minutos_utc + offset_h * 60) % (24 * 60)
+        coincidencias = sum(
+            1 for m in minutos_raspados
+            if abs(m - minutos_web) <= VENTANA or abs(m - minutos_web - 1440) <= VENTANA
+        )
+        scores[offset_str] = coincidencias
+        print(f"    Offset {offset_str}: hora esperada = {minutos_web // 60:02d}:{minutos_web % 60:02d} → {coincidencias} coincidencias")
+
+    mejor_offset = max(scores, key=scores.get)
+    mejor_score  = scores[mejor_offset]
+
+    if mejor_score == 0:
+        print("  ✗ No se pudo determinar el offset con certeza.")
+        return None
+
+    print(f"\n  ✔ Zona horaria detectada de la web: {mejor_offset} (score: {mejor_score})")
+    return mejor_offset
+
+
+# ==============================================================================
+# CONFIGURACIÓN - Añade o quita canales aquí
+# ==============================================================================
 
 CANALES = [
     {
@@ -87,10 +186,10 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 # FUNCIONES
 # ==============================================================================
 
-def convertir_hora_a_espana(hora_str, fecha, tz_espana):
+def convertir_hora(hora_str, fecha, tz_web, tz_espana):
     """
-    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2)
-    y devuelve formato XMLTV con el offset de España.
+    Convierte una hora de la web (en tz_web) a hora de España (tz_espana).
+    Devuelve formato XMLTV: 'YYYYMMDDHHMMSS +0100'
     """
     hora_str = hora_str.strip()
     try:
@@ -98,15 +197,15 @@ def convertir_hora_a_espana(hora_str, fecha, tz_espana):
     except ValueError:
         return None
 
-    # Hora local México
-    dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+    dt_local = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
 
-    # Convertir a UTC (México = UTC-6, sumamos 6 horas)
-    dt_utc = dt_mexico + timedelta(hours=6)
+    # Convertir a UTC restando el offset de la web
+    offset_web_h = int(tz_web[:3])   # p.ej. -6 para "-0600"
+    dt_utc = dt_local - timedelta(hours=offset_web_h)
 
-    # Convertir a hora España
-    offset_horas = int(tz_espana[:3])  # +01 o +02
-    dt_espana = dt_utc + timedelta(hours=offset_horas)
+    # Convertir a hora España sumando su offset
+    offset_espana_h = int(tz_espana[:3])  # +1 o +2
+    dt_espana = dt_utc + timedelta(hours=offset_espana_h)
 
     return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_espana
 
@@ -137,7 +236,7 @@ def extraer_titulo_y_desc(celda):
     return titulo, desc
 
 
-def raspar_canal_dia(slug, fecha, tz_espana):
+def raspar_canal_dia(slug, fecha, tz_web, tz_espana):
     """Raspa los programas de un canal para una fecha concreta."""
     fecha_str = fecha.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
@@ -180,13 +279,13 @@ def raspar_canal_dia(slug, fecha, tz_espana):
             if not titulo:
                 continue
 
-            # Fecha de fin (si empieza PM y termina AM → día siguiente en México)
+            # Fecha de fin (si empieza PM y termina AM → día siguiente)
             fin_fecha = fecha
             if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
                 fin_fecha = fecha + timedelta(days=1)
 
-            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, tz_espana)
-            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, tz_espana)
+            inicio_dt = convertir_hora(hora_inicio_txt, fecha, tz_web, tz_espana)
+            fin_dt    = convertir_hora(hora_fin_txt, fin_fecha, tz_web, tz_espana)
 
             if not inicio_dt or not fin_dt:
                 continue
@@ -248,8 +347,15 @@ def generar_xml(canales_data):
 def main():
     print("═══ INICIANDO SCRAPER EPG GATOTV ═══")
 
-    # Detectar zona horaria de España automáticamente
+    # 1. Detectar zona horaria de España
     tz_espana = get_timezone_espana()
+
+    # 2. Detectar zona horaria que usa la web según nuestra IP
+    tz_web = detectar_tz_web()
+    if tz_web is None:
+        tz_web = "-0600"  # Fallback: México Centro
+        print(f"  ⚠ Usando zona horaria por defecto: {tz_web} (México Centro)")
+    print(f"\n  RESUMEN: web en {tz_web} → convertir a España {tz_espana}")
 
     hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     fechas = [hoy + timedelta(days=i) for i in range(DIAS)]
@@ -261,7 +367,7 @@ def main():
         todos_programas = []
 
         for fecha in fechas:
-            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, tz_espana)
+            programas_dia = raspar_canal_dia(canal["url_slug"], fecha, tz_web, tz_espana)
             todos_programas.extend(programas_dia)
             time.sleep(1.5)
 
