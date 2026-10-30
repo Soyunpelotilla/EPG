@@ -15,26 +15,19 @@ import re
 
 # ==============================================================================
 # ZONA HORARIA ESPAÑA - Detección automática
-# Cambio de hora: último domingo de marzo (→ +0200) y octubre (→ +0100)
 # ==============================================================================
 
 def ultimo_domingo(year, month):
-    """Devuelve la fecha del último domingo de un mes dado."""
     ultimo_dia = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year, 12, 31)
-    dias_hasta_domingo = ultimo_dia.weekday() + 1  # weekday(): lunes=0, domingo=6
+    dias_hasta_domingo = ultimo_dia.weekday() + 1
     if dias_hasta_domingo == 7:
         dias_hasta_domingo = 0
     return ultimo_dia - timedelta(days=dias_hasta_domingo)
 
 def get_timezone_espana():
-    """
-    Devuelve el offset de España según la fecha actual.
-    Verano (CEST): último domingo de marzo → último domingo de octubre → +0200
-    Invierno (CET): resto del año → +0100
-    """
     ahora = datetime.utcnow()
-    inicio_verano = ultimo_domingo(ahora.year, 3)   # Último domingo de marzo
-    fin_verano    = ultimo_domingo(ahora.year, 10)  # Último domingo de octubre
+    inicio_verano = ultimo_domingo(ahora.year, 3)
+    fin_verano    = ultimo_domingo(ahora.year, 10)
 
     if inicio_verano <= ahora < fin_verano:
         offset = "+0200"
@@ -47,10 +40,8 @@ def get_timezone_espana():
     return offset
 
 # ==============================================================================
-# CONFIGURACIÓN - Añade o quita canales aquí
+# CONFIGURACIÓN
 # ==============================================================================
-
-TZ_MEXICO = "-0600"   # Hora en que la web publica los horarios (México Centro)
 
 CANALES = [
     {
@@ -88,9 +79,6 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}$", re.IGNORECASE)
 # ==============================================================================
 
 def convertir_hora_a_espana(hora_str, fecha, tz_espana):
-    """
-    Usa directamente la hora de GatoTV (en formato 24h) con su offset.
-    """
     hora_str = hora_str.strip()
     try:
         t = datetime.strptime(hora_str, "%H:%M")
@@ -102,14 +90,14 @@ def convertir_hora_a_espana(hora_str, fecha, tz_espana):
 
 
 def extraer_titulo_y_desc(celda):
-    """Extrae título y descripción de la celda del programa."""
     enlace = celda.find("a")
-    if enlace:
+    if enlace and enlace.get_text(strip=True):
         titulo = enlace.get_text(strip=True)
     else:
         texto_completo = celda.get_text(separator="\n", strip=True)
         lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
-        titulo = lineas[0] if lineas else ""
+        lineas_validas = [l for l in lineas if not re.match(r"^\d{1,2}:\d{2}$", l) and l != "-"]
+        titulo = lineas_validas[0] if lineas_validas else ""
 
     desc = ""
     for tag in celda.find_all(["p", "span", "small"]):
@@ -118,17 +106,10 @@ def extraer_titulo_y_desc(celda):
             desc = t
             break
 
-    if not desc:
-        texto_completo = celda.get_text(separator="\n", strip=True)
-        lineas = [l.strip() for l in texto_completo.split("\n") if l.strip()]
-        if len(lineas) > 1 and len(lineas[1]) > 30:
-            desc = lineas[1]
-
     return titulo, desc
 
 
 def raspar_canal_dia(slug, fecha, tz_espana):
-    """Raspa los programas de un canal para una fecha concreta."""
     fecha_str = fecha.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
     print(f"  → Raspando: {url}")
@@ -144,69 +125,72 @@ def raspar_canal_dia(slug, fecha, tz_espana):
     programas = []
     vistos = set()
 
-    for tr in soup.find_all("tr"):
-        tds = tr.find_all("td")
-        if len(tds) < 2:
-            continue
-            
-        horas_en_fila = []
-        for td in tds:
-            txt_td = td.get_text(separator=" ", strip=True)
-            m = re.findall(r"\b(\d{2}:\d{2})\b", txt_td)
-            if m:
-                horas_en_fila.extend(m)
-                
-        if len(horas_en_fila) < 2:
-            continue
-            
-        hora_ini = horas_en_fila[0]
-        hora_fin = horas_en_fila[1]
-        
-        titulo = ""
-        for td in tds:
-            txt_c = td.get_text(separator=" ", strip=True)
-            if re.match(r"^\d{2}:\d{2}$", txt_c) or txt_c == "-" or not txt_c or "Horarios para" in txt_c:
+    for tabla in soup.find_all("table"):
+        for fila in tabla.find_all("tr"):
+            celdas = fila.find_all("td")
+            if len(celdas) < 2:
                 continue
-            a_tag = td.find("a")
-            if a_tag and a_tag.get_text(strip=True):
-                titulo = a_tag.get_text(strip=True)
-                break
-            else:
-                lineas = [l.strip() for l in td.get_text(separator="\n", strip=True).split("\n") if l.strip()]
-                lineas_validas = [l for l in lineas if not re.match(r"^\d{2}:\d{2}$", l) and l != "-"]
-                if lineas_validas:
-                    titulo = lineas_validas[0]
+
+            textos = [c.get_text(separator=" ", strip=True) for c in celdas]
+            textos = [t for t in textos if t]
+
+            if len(textos) < 2:
+                continue
+
+            hora_inicio_txt = ""
+            hora_fin_txt = ""
+
+            horas_encontradas = []
+            for t_txt in textos:
+                matchs = re.findall(r"\b(\d{1,2}:\d{2})\b", t_txt)
+                for m in matchs:
+                    if len(horas_encontradas) < 2:
+                        horas_encontradas.append(m)
+
+            if len(horas_encontradas) < 2:
+                continue
+
+            hora_inicio_txt = horas_encontradas[0]
+            hora_fin_txt = horas_encontradas[1]
+
+            celda_prog = None
+            for c in celdas:
+                txt = c.get_text(separator=" ", strip=True)
+                if txt and not re.match(r"^\d{1,2}:\d{2}$", txt) and txt != "-" and "Horarios para" not in txt:
+                    celda_prog = c
                     break
-                    
-        titulo = " ".join(titulo.split())
-        if not titulo or "Horarios de Programación" in titulo or "Horarios para" in titulo:
-            continue
-            
-        fin_fecha = fecha + timedelta(days=1) if hora_ini > hora_fin else fecha
-        inicio_dt = convertir_hora_a_espana(hora_ini, fecha, tz_espana)
-        fin_dt = convertir_hora_a_espana(hora_fin, fin_fecha, tz_espana)
 
-        if not inicio_dt or not fin_dt:
-            continue
+            if not celda_prog:
+                continue
 
-        clave = f"{inicio_dt}|{titulo}"
-        if clave in vistos:
-            continue
-        vistos.add(clave)
+            titulo, desc = extraer_titulo_y_desc(celda_prog)
+            if not titulo or "Horarios de Programación" in titulo or "Horarios para" in titulo:
+                continue
 
-        programas.append({
-            "titulo": titulo,
-            "desc": "",
-            "inicio": inicio_dt,
-            "fin": fin_dt,
-        })
+            fin_fecha = fecha + timedelta(days=1) if hora_inicio_txt > hora_fin_txt else fecha
+            inicio_dt = convertir_hora_a_espana(hora_inicio_txt, fecha, tz_espana)
+            fin_dt    = convertir_hora_a_espana(hora_fin_txt, fin_fecha, tz_espana)
+
+            if not inicio_dt or not fin_dt:
+                continue
+
+            clave = f"{inicio_dt}|{titulo}"
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+
+            programas.append({
+                "titulo": titulo,
+                "desc": desc,
+                "inicio": inicio_dt,
+                "fin": fin_dt,
+            })
 
     print(f"  ✓ {len(programas)} programas para {fecha_str}")
     return programas
 
 
 def generar_xml(canales_data):
-    """Genera el XML en formato XMLTV."""
     tv = ET.Element("tv")
     tv.set("generator-info-name", "scraper_epg.py")
     tv.set("generator-info-url", "https://github.com")
@@ -239,16 +223,9 @@ def generar_xml(canales_data):
     return dom.toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
 
 
-# ==============================================================================
-# MAIN
-# ==============================================================================
-
 def main():
     print("═══ INICIANDO SCRAPER EPG GATOTV ═══")
-
-    # Detectar zona horaria de España automáticamente
     tz_espana = get_timezone_espana()
-
     hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     fechas = [hoy + timedelta(days=i) for i in range(DIAS)]
 
