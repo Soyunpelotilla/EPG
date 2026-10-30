@@ -33,39 +33,47 @@ def raspar(slug, fecha, session):
     soup=BeautifulSoup(r.text,"html.parser")
     progs=[]
     for tr in soup.find_all("tr"):
-        tds = [td for td in tr.find_all("td")]
-        if len(tds) < 2:
+        texto_tr = tr.get_text(separator="|", strip=True)
+        # Buscar todas las horas formato HH:MM en la fila
+        horas_en_fila = re.findall(r"\b(\d{2}:\d{2})\b", texto_tr)
+        if len(horas_en_fila) < 2:
             continue
         
-        # Buscar celdas que contengan horas HH:MM
-        horas_en_fila = []
-        for td in tds:
-            txt = td.get_text(strip=True)
-            m = re.findall(r"^(\d{2}:\d{2})$", txt)
-            if m:
-                horas_en_fila.extend(m)
-                
-        # Si no hay suficientes horas en las celdas directas, buscar en el texto general del tr
-        if len(horas_en_fila) < 2:
-            texto_tr = tr.get_text(separator="|", strip=True)
-            horas_en_fila = re.findall(r"\b(\d{2}:\d{2})\b", texto_tr)
-            
-        if len(horas_en_fila) < 2:
-            continue
-            
         hora_ini = horas_en_fila[0]
         hora_fin = horas_en_fila[1]
         
-        celdas=[c for c in tr.find_all("td") if c.get_text(strip=True)]
-        if len(celdas)<3: continue
-        titulo=celdas[2].find("a").get_text(strip=True) if celdas[2].find("a") else celdas[2].get_text(strip=True).split("\n")[0]
-        titulo=titulo.strip()
-        fin_fecha=fecha+timedelta(days=1) if hora_ini > hora_fin else fecha
-        ini=convertir_hora(hora_ini,fecha)
-        fin=convertir_hora(hora_fin,fin_fecha)
+        celdas = [c for c in tr.find_all("td") if c.get_text(strip=True)]
+        # Filtrar o encontrar la celda con el título (generalmente la tercera celda con contenido o texto largo)
+        textos_celdas = [c.get_text(strip=True) for c in tr.find_all("td") if c.get_text(strip=True)]
+        
+        # Eliminar las horas de los textos para quedarnos con el título real
+        candidatos = []
+        for c in tr.find_all("td"):
+            txt = " ".join(c.get_text(strip=True).split())
+            if not re.match(r"^\d{2}:\d{2}$", txt) and txt != "-" and txt != "":
+                # Puede ser el título o parte del mismo
+                candidatos.append(txt)
+                
+        if not candidatos:
+            continue
+            
+        # El título suele ser el primer candidato válido o el contenido del enlace
+        a_tag = tr.find("a")
+        if a_tag and a_tag.get_text(strip=True):
+            titulo = a_tag.get_text(strip=True)
+        else:
+            titulo = candidatos[0].split("\n")[0]
+            
+        titulo = " ".join(titulo.split())
+        if not titulo or "Horarios para" in titulo:
+            continue
+            
+        fin_fecha = fecha + timedelta(days=1) if hora_ini > hora_fin else fecha
+        ini = convertir_hora(hora_ini, fecha)
+        fin = convertir_hora(hora_fin, fin_fecha)
         if ini and fin:
-            progs.append({"titulo":titulo,"inicio":ini,"fin":fin})
-    progs.sort(key=lambda x:x["inicio"])
+            progs.append({"titulo": titulo, "inicio": ini, "fin": fin})
+    progs.sort(key=lambda x: x["inicio"])
     return progs
 def main():
     hoy=datetime.now(TZ_MADRID).replace(hour=0,minute=0,second=0,microsecond=0)
