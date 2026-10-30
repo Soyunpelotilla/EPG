@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 import time, re
 TZ_MADRID = ZoneInfo("Europe/Madrid")
-TZ_MEXICO_OFFSET = 7
+TZ_MEXICO_OFFSET = 0
 print(f"═══ SCRAPER OFFSET {TZ_MEXICO_OFFSET}h - PANTHERS 01:00 ES ═══")
 CANALES=[
  {"id":"FOX MX","nombre":"FOX MX","url_slug":"fox_mexico","logo":"https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png"},
