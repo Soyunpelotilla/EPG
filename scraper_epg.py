@@ -33,18 +33,10 @@ def raspar(slug, fecha, session):
     soup=BeautifulSoup(r.text,"html.parser")
     progs=[]
     for tr in soup.find_all("tr"):
-        tds=[c.get_text(strip=True) for c in tr.find_all("td") if c.get_text(strip=True)]
-        if len(tds)<2: continue
-        # GatoTV muestra formato 24h ej: "10:00" y "- " y "12:00"
-        horas_encontradas = []
-        for td in tds:
-            m = re.findall(r"^\d{1,2}:\d{2}$", td)
-            if m:
-                horas_encontradas.extend(m)
+        texto_tr = tr.get_text(separator="|", strip=True)
+        horas_encontradas = re.findall(r"\b(\d{2}:\d{2})\b", texto_tr)
         if len(horas_encontradas) < 2:
-            # Intentar buscar por filas o celdas de texto exacto de hora
             continue
-        # Tomar la primera y segunda hora como inicio y fin
         hora_ini = horas_encontradas[0]
         hora_fin = horas_encontradas[1]
         
