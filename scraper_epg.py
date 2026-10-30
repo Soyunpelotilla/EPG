@@ -81,7 +81,7 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
-HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
+HORA_RE = re.compile(r"^\d{1,2}:\d{2}$", re.IGNORECASE)
 
 # ==============================================================================
 # FUNCIONES
@@ -89,11 +89,11 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 
 def convertir_hora_a_espana(hora_str, fecha, tz_espana):
     """
-    Usa directamente la hora de GatoTV (ya en hora española) con su offset.
+    Usa directamente la hora de GatoTV (en formato 24h) con su offset.
     """
     hora_str = hora_str.strip()
     try:
-        t = datetime.strptime(hora_str, "%I:%M %p")
+        t = datetime.strptime(hora_str, "%H:%M")
     except ValueError:
         return None
 
