@@ -12,7 +12,7 @@ import time
 import re
 
 TZ_MADRID = ZoneInfo("Europe/Madrid")
-TZ_MEXICO_OFFSET = 9  # 9h para que 16:00 MX = 01:00 ES
+TZ_MEXICO_OFFSET = 7
 
 print(f"═══ SCRAPER OFFSET {TZ_MEXICO_OFFSET}h (FIX PANTHERS 01:00) ═══")
 print(f"  Zona España: {datetime.now(TZ_MADRID).tzname()} - {datetime.now(TZ_MADRID)}")
