@@ -21,8 +21,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar dependencias
-        run: pip install requests beautifulsoup4
+      - name: Instalar dependencias Python
+        run: pip install playwright beautifulsoup4
+
+      - name: Instalar navegador Playwright (Chromium)
+        run: playwright install chromium --with-deps
 
       - name: Ejecutar scraper EPG
         run: python scraper_epg.py
