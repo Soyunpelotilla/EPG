@@ -3,7 +3,8 @@
 # Script: scraper_epg.py
 # Función: Raspa programación de gatotv.com y genera XML en formato XMLTV
 # Usa Playwright para ejecutar JavaScript y obtener la página completa.
-# gatotv.com geolocaliza la IP → devuelve hora española directamente.
+# gatotv.com devuelve hora México (UTC-6) independientemente de la IP.
+# Se convierte a hora España (UTC+1 invierno / UTC+2 verano).
 # ==============================================================================
 
 from playwright.sync_api import sync_playwright
@@ -30,11 +31,12 @@ def get_timezone_espana():
     inicio_verano = ultimo_domingo(ahora.year, 3)
     fin_verano    = ultimo_domingo(ahora.year, 10)
     if inicio_verano <= ahora < fin_verano:
-        offset, nombre = "+0200", "CEST (verano)"
+        offset, nombre, horas = "+0200", "CEST (verano)", 2
     else:
-        offset, nombre = "+0100", "CET (invierno)"
-    print(f"  Zona horaria España detectada: {offset} ({nombre})")
-    return offset
+        offset, nombre, horas = "+0100", "CET (invierno)", 1
+    print(f"  Zona horaria España: {offset} ({nombre})")
+    print(f"  Diferencia México→España: +{6 + horas}h (México UTC-6 → España UTC{offset})")
+    return offset, horas
 
 # ==============================================================================
 # CONFIGURACIÓN
@@ -68,15 +70,22 @@ HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
 # FUNCIONES
 # ==============================================================================
 
-def convertir_hora(hora_str, fecha, tz_espana):
-    """La web ya devuelve hora española. Solo parseamos y formateamos."""
+def convertir_hora(hora_str, fecha, tz_offset, tz_horas):
+    """
+    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2).
+    Diferencia total: 6 + tz_horas (7h en invierno, 8h en verano).
+    """
     hora_str = hora_str.strip()
     try:
         t = datetime.strptime(hora_str, "%I:%M %p")
     except ValueError:
         return None
-    dt = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-    return dt.strftime("%Y%m%d%H%M%S") + " " + tz_espana
+
+    dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+    dt_utc    = dt_mexico + timedelta(hours=6)           # México UTC-6 → UTC
+    dt_espana = dt_utc + timedelta(hours=tz_horas)       # UTC → España
+
+    return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_offset
 
 
 def extraer_titulo_y_desc(celda):
@@ -102,15 +111,14 @@ def extraer_titulo_y_desc(celda):
     return titulo, desc
 
 
-def raspar_canal_dia(page, slug, fecha, tz_espana):
-    """Raspa un canal para una fecha usando Playwright (página ya renderizada)."""
+def raspar_canal_dia(page, slug, fecha, tz_offset, tz_horas):
+    """Raspa un canal para una fecha usando Playwright."""
     fecha_str = fecha.strftime("%Y-%m-%d")
     url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
     print(f"  → Raspando: {url}")
 
     try:
         page.goto(url, wait_until="networkidle", timeout=30000)
-        # Esperar a que aparezca la tabla de programación
         page.wait_for_selector("table", timeout=15000)
     except Exception as e:
         print(f"  ✗ Error cargando página: {e}")
@@ -146,18 +154,17 @@ def raspar_canal_dia(page, slug, fecha, tz_espana):
             if not titulo:
                 continue
 
-            # Cruce de medianoche: empieza PM y termina AM → fin es día siguiente
+            # Cruce de medianoche en México: empieza PM y termina AM → fin es día siguiente
             fin_fecha = fecha
             if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
                 fin_fecha = fecha + timedelta(days=1)
 
-            inicio_dt = convertir_hora(hora_inicio_txt, fecha, tz_espana)
-            fin_dt    = convertir_hora(hora_fin_txt, fin_fecha, tz_espana)
+            inicio_dt = convertir_hora(hora_inicio_txt, fecha,    tz_offset, tz_horas)
+            fin_dt    = convertir_hora(hora_fin_txt,    fin_fecha, tz_offset, tz_horas)
 
             if not inicio_dt or not fin_dt:
                 continue
 
-            # Ignorar programas con duración cero
             if inicio_dt == fin_dt:
                 continue
 
@@ -216,7 +223,7 @@ def generar_xml(canales_data):
 
 def main():
     print("═══ INICIANDO SCRAPER EPG GATOTV (Playwright) ═══")
-    tz_espana = get_timezone_espana()
+    tz_offset, tz_horas = get_timezone_espana()
 
     hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     fechas = [hoy + timedelta(days=i) for i in range(DIAS)]
@@ -226,8 +233,6 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
-            locale="es-ES",
-            timezone_id="Europe/Madrid",
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         )
         page = context.new_page()
@@ -237,7 +242,7 @@ def main():
             todos_programas = []
 
             for fecha in fechas:
-                programas_dia = raspar_canal_dia(page, canal["url_slug"], fecha, tz_espana)
+                programas_dia = raspar_canal_dia(page, canal["url_slug"], fecha, tz_offset, tz_horas)
                 todos_programas.extend(programas_dia)
                 time.sleep(1)
 
