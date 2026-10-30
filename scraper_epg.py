@@ -34,7 +34,6 @@ def raspar(slug, fecha, session):
     progs=[]
     for tr in soup.find_all("tr"):
         texto_tr = tr.get_text(separator="|", strip=True)
-        # Buscar todas las horas formato HH:MM en la fila
         horas_en_fila = re.findall(r"\b(\d{2}:\d{2})\b", texto_tr)
         if len(horas_en_fila) < 2:
             continue
@@ -42,28 +41,25 @@ def raspar(slug, fecha, session):
         hora_ini = horas_en_fila[0]
         hora_fin = horas_en_fila[1]
         
-        celdas = [c for c in tr.find_all("td") if c.get_text(strip=True)]
-        # Filtrar o encontrar la celda con el título (generalmente la tercera celda con contenido o texto largo)
-        textos_celdas = [c.get_text(strip=True) for c in tr.find_all("td") if c.get_text(strip=True)]
-        
-        # Eliminar las horas de los textos para quedarnos con el título real
-        candidatos = []
-        for c in tr.find_all("td"):
-            txt = " ".join(c.get_text(strip=True).split())
-            if not re.match(r"^\d{2}:\d{2}$", txt) and txt != "-" and txt != "":
-                # Puede ser el título o parte del mismo
-                candidatos.append(txt)
-                
-        if not candidatos:
+        # Extraer celdas de la fila
+        tds = tr.find_all("td")
+        if len(tds) < 2:
             continue
             
-        # El título suele ser el primer candidato válido o el contenido del enlace
-        a_tag = tr.find("a")
-        if a_tag and a_tag.get_text(strip=True):
-            titulo = a_tag.get_text(strip=True)
-        else:
-            titulo = candidatos[0].split("\n")[0]
-            
+        # El título suele estar en la celda del programa (ignorando las columnas de hora)
+        # Busquemos la celda que tenga texto que no sea solo una hora ni un guion
+        titulo = ""
+        for td in tds:
+            txt_celda = " ".join(td.get_text(separator=" ", strip=True).split())
+            if not re.match(r"^\d{2}:\d{2}$", txt_celda) and txt_celda != "-" and txt_celda != "":
+                # Si hay etiquetas <a>, priorizarlas
+                a_tag = td.find("a")
+                if a_tag and a_tag.get_text(strip=True):
+                    titulo = a_tag.get_text(strip=True)
+                else:
+                    titulo = txt_celda
+                break
+                
         titulo = " ".join(titulo.split())
         if not titulo or "Horarios para" in titulo:
             continue
