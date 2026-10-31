@@ -12,8 +12,8 @@ jobs:
   build-epg:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.11'
       - run: pip install requests
@@ -21,7 +21,7 @@ jobs:
       - run: ls -lh epg.xml.gz && cat release_info.txt
 
       - name: Crear Release EPG 3 dias
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.2.2
         with:
           tag_name: epg-latest
           name: EPG 3 dias
