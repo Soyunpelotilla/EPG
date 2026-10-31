@@ -1,4 +1,4 @@
-name: Generador EPG Mexico - epg.guru
+name: Generador EPG Mexico + USA
 
 on:
   schedule:
@@ -11,7 +11,6 @@ permissions:
 jobs:
   build-epg:
     runs-on: ubuntu-latest
-
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
@@ -24,23 +23,16 @@ jobs:
       - name: Instalar dependencias
         run: pip install requests
 
-      - name: Ejecutar conversor epg.guru a XMLTV
+      - name: Ejecutar scraper
         run: python scraper_epg.py
 
-      - name: Comprimir a .gz
-        run: |
-          if [ ! -f guide.xml ]; then
-            echo "❌ guide.xml no existe"
-            exit 1
-          fi
-          gzip -c guide.xml > guide.xml.gz
-          ls -lh guide.xml guide.xml.gz
-          rm guide.xml
+      - name: Ver archivos
+        run: ls -lh epg.xml epg.xml.gz
 
-      - name: Publicar guide.xml.gz
+      - name: Publicar epg.xml y epg.xml.gz
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
-          git add guide.xml.gz
-          git commit -m "EPG Mexico actualizada $(date '+%d/%m/%Y %H:%M UTC')" || echo "Sin cambios"
+          git add epg.xml epg.xml.gz
+          git commit -m "EPG MX+USA actualizada $(date '+%d/%m/%Y %H:%M UTC')" || echo "Sin cambios"
           git push
