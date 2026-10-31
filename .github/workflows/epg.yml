@@ -1,4 +1,4 @@
-name: Generador EPG Mexico + USA
+name: Generador EPG
 
 on:
   schedule:
@@ -12,27 +12,23 @@ jobs:
   build-epg:
     runs-on: ubuntu-latest
     steps:
-      - name: Clonar repositorio
-        uses: actions/checkout@v4
-
-      - name: Configurar Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - run: pip install requests
+      - run: python scraper_epg.py
+      - run: ls -lh epg.xml.gz
 
-      - name: Instalar dependencias
-        run: pip install requests
-
-      - name: Ejecutar scraper
-        run: python scraper_epg.py
-
-      - name: Ver archivos
-        run: ls -lh epg.xml epg.xml.gz
-
-      - name: Publicar epg.xml y epg.xml.gz
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git add epg.xml epg.xml.gz
-          git commit -m "EPG MX+USA actualizada $(date '+%d/%m/%Y %H:%M UTC')" || echo "Sin cambios"
-          git push
+      - name: Subir a Release (se actualiza solo)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: epg-latest
+          name: EPG 3 dias Mexico + USA
+          body: |
+            Actualizado automáticamente cada 6 horas
+            Contenido: Ayer + Hoy + Mañana
+            Mexico + UnitedStates
+          files: epg.xml.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
