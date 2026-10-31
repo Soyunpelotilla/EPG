@@ -1,11 +1,9 @@
 import requests
 import re
 import gzip
+import os
 import xml.etree.ElementTree as ET
-from xml.dom import minidom
-from datetime import datetime, timedelta
 
-# AQUI AÑADES MAS URL SI QUIERES
 URLS = [
     "https://cdn.epg.guru/7dayiptv/Mexico.xml",
     "https://cdn.epg.guru/7dayiptv/UnitedStates.xml",
@@ -14,91 +12,78 @@ URLS = [
 def arreglar_acentos(texto):
     if not texto:
         return texto
-    try:
-        if "Ã" in texto or "Â" in texto:
-            for _ in range(2):
-                try:
-                    texto = texto.encode('latin1').decode('utf-8')
-                except:
-                    break
-    except:
-        pass
+    if "Ã" in texto or "Â" in texto:
+        try:
+            texto = texto.encode('latin1').decode('utf-8')
+        except:
+            pass
     return texto
 
 headers = {"User-Agent": "Mozilla/5.0"}
-tv = ET.Element("tv")
-canales = {}
-count = 0
+seen_channels = set()
+total_prog = 0
 
-for URL in URLS:
-    print(f"Bajando {URL}...")
-    r = requests.get(URL, timeout=180, headers=headers)
-    raw = arreglar_acentos(r.content.decode('utf-8', errors='ignore'))
+print("Creando epg.xml en modo streaming...")
+with open("epg.xml", "w", encoding="utf-8") as out:
+    out.write('<?xml version="1.0" encoding="UTF-8"?>\n<tv>\n')
 
-    # Si ya es XMLTV, lo fusionamos directo
-    if "<tv" in raw.lower() and "<programme" in raw.lower():
+    for URL in URLS:
+        print(f"Bajando {URL}...")
+        # Bajamos a archivo temporal para no tenerlo en RAM
+        tmp_file = "temp_epg.xml"
+        with requests.get(URL, headers=headers, stream=True, timeout=300) as r:
+            r.raise_for_status()
+            with open(tmp_file, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024*1024):
+                    f.write(chunk)
+        
+        print(f"Procesando {URL}...")
+        # iterparse = no carga todo, va leyendo poco a poco
         try:
-            root = ET.fromstring(raw)
-            for ch in root.findall("channel"):
-                if ch.get("id") not in canales:
-                    canales[ch.get("id")] = True
-                    tv.append(ch)
-            for pr in root.findall("programme"):
-                tv.append(pr)
-                count += 1
-            print(f"-> {URL} XMLTV fusionado")
-            continue
+            context = ET.iterparse(tmp_file, events=("end",))
+            for event, elem in context:
+                if elem.tag == "channel":
+                    cid = elem.get("id")
+                    if cid not in seen_channels:
+                        seen_channels.add(cid)
+                        # arreglar acentos en display-name
+                        for dn in elem.findall("display-name"):
+                            if dn.text:
+                                dn.text = arreglar_acentos(dn.text)
+                        out.write(ET.tostring(elem, encoding="unicode"))
+                        out.write("\n")
+                    elem.clear()
+                elif elem.tag == "programme":
+                    # arreglar titulo
+                    title = elem.find("title")
+                    if title is not None and title.text:
+                        title.text = arreglar_acentos(title.text)
+                    out.write(ET.tostring(elem, encoding="unicode"))
+                    out.write("\n")
+                    total_prog += 1
+                    elem.clear()
+            print(f"-> {URL} OK")
         except Exception as e:
-            print(f"No se pudo parsear como XMLTV: {e}")
-
-    # Parser Gracenote
-    canales_local = {}
-    for line in raw.splitlines()[:8000]:
-        m = re.search(r'(\d{4,6})\s+\d{4,6}\s*$', line)
-        if m:
-            cid = m.group(1)
-            nombre = arreglar_acentos(line[:m.start()].strip())
-            if nombre and cid not in canales:
-                canales[cid] = nombre
-                ch = ET.SubElement(tv, "channel")
-                ch.set("id", cid)
-                ET.SubElement(ch, "display-name").text = nombre
-                canales_local[cid] = True
-
-    prog_pat = re.compile(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+(.+?)(?:https://|$)')
-    for line in raw.splitlines():
-        m = prog_pat.search(line)
-        if not m:
+            print(f"Error procesando {URL}: {e}")
+            # fallback: si falla iterparse, intentamos copiar tal cual
             continue
-        fecha, hora, resto = m.groups()
-        titulo = arreglar_acentos(resto.split("  ")[0][:150].strip())
-        if len(titulo) < 3:
-            continue
-        try:
-            dt = datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M:%S")
-            start = dt.strftime("%Y%m%d%H%M%S") + " +0000"
-            stop = (dt + timedelta(minutes=90)).strftime("%Y%m%d%H%M%S") + " +0000"
-            cid_match = re.search(r'\b(\d{4,6})\b', line[:100])
-            cid = cid_match.group(1) if cid_match and cid_match.group(1) in canales else next(iter(canales_local), "62161")
-            pr = ET.SubElement(tv, "programme")
-            pr.set("start", start)
-            pr.set("stop", stop)
-            pr.set("channel", cid)
-            t = ET.SubElement(pr, "title")
-            t.set("lang", "es")
-            t.text = titulo
-            count += 1
-        except:
-            continue
+        finally:
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
 
-# Guardar epg.xml y epg.xml.gz
-xml_str = ET.tostring(tv, encoding="unicode")
-pretty = minidom.parseString(xml_str).toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
-open("epg.xml", "w", encoding="utf-8").write(pretty)
+    out.write('</tv>\n')
 
+print(f"Total: {len(seen_channels)} canales, {total_prog} programas")
+
+# Crear gz
+print("Comprimiendo a epg.xml.gz...")
 with open("epg.xml", 'rb') as f_in:
     with gzip.open("epg.xml.gz", 'wb', compresslevel=9) as f_out:
-        f_out.writelines(f_in)
+        while True:
+            chunk = f_in.read(1024*1024)
+            if not chunk:
+                break
+            f_out.write(chunk)
 
-print(f"✓ epg.xml -> {len(canales)} canales, {count} programas")
-print(f"✓ epg.xml.gz creado")
+print(f"✓ epg.xml ({os.path.getsize('epg.xml')/1024/1024:.2f} MB)")
+print(f"✓ epg.xml.gz ({os.path.getsize('epg.xml.gz')/1024/1024:.2f} MB)")
