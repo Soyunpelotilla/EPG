@@ -1,4 +1,4 @@
-name: Generador EPG
+name: Generador EPG 3 dias
 
 on:
   schedule:
@@ -18,17 +18,14 @@ jobs:
           python-version: '3.11'
       - run: pip install requests
       - run: python scraper_epg.py
-      - run: ls -lh epg.xml.gz
+      - run: ls -lh epg.xml.gz && cat release_info.txt
 
-      - name: Subir a Release (se actualiza solo)
+      - name: Crear Release EPG 3 dias
         uses: softprops/action-gh-release@v2
         with:
           tag_name: epg-latest
-          name: EPG 3 dias Mexico + USA
-          body: |
-            Actualizado automáticamente cada 6 horas
-            Contenido: Ayer + Hoy + Mañana
-            Mexico + UnitedStates
+          name: EPG 3 dias
+          body_path: release_info.txt
           files: epg.xml.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
