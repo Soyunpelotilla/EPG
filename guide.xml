@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="FOX MX">
+    <display-name>FOX MX</display-name>
+  </channel>
+  <channel id="FOX+ MX">
+    <display-name>FOX+ MX</display-name>
+  </channel>
+  <channel id="Canal 5 MX">
+    <display-name>Canal 5 MX</display-name>
+  </channel>
+  <programme start="20261031000000 +0100" stop="20261031010000 +0100" channel="FOX MX">
+    <title lang="es">Cuadro titular</title>
+  </programme>
+  <programme start="20261031010000 +0100" stop="20261031020000 +0100" channel="FOX MX">
+    <title lang="es">FOX 365</title>
+  </programme>
+  <programme start="20261031020000 +0100" stop="20261031030000 +0100" channel="FOX MX">
+    <title lang="es">Cuadro titular</title>
+  </programme>
+  <programme start="20261031030000 +0100" stop="20261031040000 +0100" channel="FOX MX">
+    <title lang="es">FOX 365</title>
+  </programme>
+  <programme start="20261031040000 +0100" stop="20261031060000 +0100" channel="FOX MX">
+    <title lang="es">El chiringuito</title>
+  </programme>
+  <programme start="20261031060000 +0100" stop="20261031070000 +0100" channel="FOX MX">
+    <title lang="es">Cuadro titular</title>
+  </programme>
+  <programme start="20261031070000 +0100" stop="20261031080000 +0100" channel="FOX MX">
+    <title lang="es">FOX 365</title>
+  </programme>
+  <programme start="20261031080000 +0100" stop="20261031110000 +0100" channel="FOX MX">
+    <title lang="es">Panthers vs. Green Bay</title>
+  </programme>
+  <programme start="20261031110000 +0100" stop="20261031124500 +0100" channel="FOX MX">
+    <title lang="es">El chiringuito</title>
+  </programme>
+  <programme start="20261031124500 +0100" stop="20261031150000 +0100" channel="FOX MX">
+    <title lang="es">Havre AC vs. Paris Saint-Germai</title>
+  </programme>
+  <programme start="20261031150000 +0100" stop="20261031170000 +0100" channel="FOX MX">
+    <title lang="es">Losc Lille vs. RC Lens</title>
+  </programme>
+  <programme start="20261031170000 +0100" stop="20261031180000 +0100" channel="FOX MX">
+    <title lang="es">Referentes</title>
+  </programme>
+  <programme start="20261031180000 +0100" stop="20261031190000 +0100" channel="FOX MX">
+    <title lang="es">Los espartanos con José Pablo</title>
+  </programme>
+  <programme start="20261031190000 +0100" stop="20261031193000 +0100" channel="FOX MX">
+    <title lang="es">La previa</title>
+  </programme>
+  <programme start="20261031193000 +0100" stop="20261031220000 +0100" channel="FOX MX">
+    <title lang="es">FC Juárez vs. Querétaro</title>
+  </programme>
+  <programme start="20261031220000 +0100" stop="20261031230000 +0100" channel="FOX MX">
+    <title lang="es">FOX 365</title>
+  </programme>
+  <programme start="20261031230000 +0100" stop="20261101000000 +0100" channel="FOX MX">
+    <title lang="es">FOX 365</title>
+  </programme>
+  <programme start="20261031000000 +0100" stop="20261031020000 +0100" channel="FOX+ MX">
+    <title lang="es">Juventus (Ita) vs. Stade Rennais (Fra)</title>
+  </programme>
+  <programme start="20261031020000 +0100" stop="20261031040000 +0100" channel="FOX+ MX">
+    <title lang="es">Celtic (Esc) vs. Celta de Vigo (Esp)</title>
+  </programme>
+  <programme start="20261031040000 +0100" stop="20261031060000 +0100" channel="FOX+ MX">
+    <title lang="es">AD San Carlos vs. Dep. Saprissa</title>
+  </programme>
+  <programme start="20261031060000 +0100" stop="20261031080000 +0100" channel="FOX+ MX">
+    <title lang="es">Herrera vs. San Francisco</title>
+  </programme>
+  <programme start="20261031080000 +0100" stop="20261031110000 +0100" channel="FOX+ MX">
+    <title lang="es">Indiana vs. Michigan</title>
+  </programme>
+  <programme start="20261031110000 +0100" stop="20261031113000 +0100" channel="FOX+ MX">
+    <title lang="es">Highlights Fox</title>
+  </programme>
+  <programme start="20261031113000 +0100" stop="20261031133000 +0100" channel="FOX+ MX">
+    <title lang="es">Al Nassr Riyadh vs. Al Kholood</title>
+  </programme>
+  <programme start="20261031133000 +0100" stop="20261031140000 +0100" channel="FOX+ MX">
+    <title lang="es">PL Netbusters</title>
+  </programme>
+  <programme start="20261031140000 +0100" stop="20261031143000 +0100" channel="FOX+ MX">
+    <title lang="es">PL Stories</title>
+  </programme>
+  <programme start="20261031143000 +0100" stop="20261031163000 +0100" channel="FOX+ MX">
+    <title lang="es">SV Elversberg vs. Mainz 05</title>
+  </programme>
+  <programme start="20261031163000 +0100" stop="20261031170000 +0100" channel="FOX+ MX">
+    <title lang="es">Highlights Fox</title>
+  </programme>
+  <programme start="20261031170000 +0100" stop="20261031190000 +0100" channel="FOX+ MX">
+    <title lang="es">Juventus (Ita) vs. Stade Rennais (Fra)</title>
+  </programme>
+  <programme start="20261031190000 +0100" stop="20261031200000 +0100" channel="FOX+ MX">
+    <title lang="es">Previa - Liga MX</title>
+  </programme>
+  <programme start="20261031200000 +0100" stop="20261031220000 +0100" channel="FOX+ MX">
+    <title lang="es">Juárez vs. Querétaro</title>
+  </programme>
+  <programme start="20261031220000 +0100" stop="20261101000000 +0100" channel="FOX+ MX">
+    <title lang="es">Celtic (Esc) vs. Celta de Vigo (Esp)</title>
+  </programme>
+  <programme start="20261031003000 +0100" stop="20261031010000 +0100" channel="Canal 5 MX">
+    <title lang="es">Contacto deportivoEn Vivo</title>
+  </programme>
+  <programme start="20261031010000 +0100" stop="20261031020000 +0100" channel="Canal 5 MX">
+    <title lang="es">Infomerciales</title>
+  </programme>
+  <programme start="20261031020000 +0100" stop="20261031030000 +0100" channel="Canal 5 MX">
+    <title lang="es">México Nuevo Siglo</title>
+  </programme>
+  <programme start="20261031030000 +0100" stop="20261031040000 +0100" channel="Canal 5 MX">
+    <title lang="es">Paid Programing</title>
+  </programme>
+  <programme start="20261031040000 +0100" stop="20261031043000 +0100" channel="Canal 5 MX">
+    <title lang="es">Cronicas</title>
+  </programme>
+  <programme start="20261031043000 +0100" stop="20261031070000 +0100" channel="Canal 5 MX">
+    <title lang="es">Infomerciales</title>
+  </programme>
+  <programme start="20261031070000 +0100" stop="20261031073000 +0100" channel="Canal 5 MX">
+    <title lang="es">PJ Masks: Héroes en Pijamas</title>
+  </programme>
+  <programme start="20261031073000 +0100" stop="20261031080000 +0100" channel="Canal 5 MX">
+    <title lang="es">Peppa Pig</title>
+  </programme>
+  <programme start="20261031080000 +0100" stop="20261031083000 +0100" channel="Canal 5 MX">
+    <title lang="es">Bebés llorones</title>
+  </programme>
+  <programme start="20261031083000 +0100" stop="20261031090000 +0100" channel="Canal 5 MX">
+    <title lang="es">Bely y Beto</title>
+  </programme>
+  <programme start="20261031090000 +0100" stop="20261031093000 +0100" channel="Canal 5 MX">
+    <title lang="es">Ve, perro. ¡Ve!</title>
+  </programme>
+  <programme start="20261031093000 +0100" stop="20261031100000 +0100" channel="Canal 5 MX">
+    <title lang="es">Tiny Toons Looniversidad</title>
+  </programme>
+  <programme start="20261031100000 +0100" stop="20261031110000 +0100" channel="Canal 5 MX">
+    <title lang="es">Kung Fu Panda La Leyenda Po</title>
+  </programme>
+  <programme start="20261031110000 +0100" stop="20261031123000 +0100" channel="Canal 5 MX">
+    <title lang="es">Los Pingüinos de Madagascar</title>
+  </programme>
+  <programme start="20261031123000 +0100" stop="20261031132500 +0100" channel="Canal 5 MX">
+    <title lang="es">El Show de Patricio Estrella</title>
+  </programme>
+  <programme start="20261031132500 +0100" stop="20261031143000 +0100" channel="Canal 5 MX">
+    <title lang="es">Fórmula 1 GP México</title>
+  </programme>
+  <programme start="20261031143000 +0100" stop="20261031165500 +0100" channel="Canal 5 MX">
+    <title lang="es">Meteoro La Película</title>
+  </programme>
+  <programme start="20261031165500 +0100" stop="20261031183000 +0100" channel="Canal 5 MX">
+    <title lang="es">Fórmula 1 GP México</title>
+  </programme>
+  <programme start="20261031183000 +0100" stop="20261031193000 +0100" channel="Canal 5 MX">
+    <title lang="es">Contrato de Corazones</title>
+  </programme>
+  <programme start="20261031193000 +0100" stop="20261031213000 +0100" channel="Canal 5 MX">
+    <title lang="es">Gremlins 2</title>
+  </programme>
+  <programme start="20261031213000 +0100" stop="20261031233000 +0100" channel="Canal 5 MX">
+    <title lang="es">Me caigo de risa</title>
+  </programme>
+  <programme start="20261031233000 +0100" stop="20261101003000 +0100" channel="Canal 5 MX">
+    <title lang="es">La ley y el orden UVE</title>
+  </programme>
+  <programme start="20261031233000 +0100" stop="20261101010000 +0100" channel="Canal 5 MX">
+    <title lang="es">Bromas Que Matan</title>
+  </programme>
+</tv>
