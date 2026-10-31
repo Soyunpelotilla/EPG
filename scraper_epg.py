@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-# scraper_hoy_playwright_direct.py
-# CON PLAYWRIGHT + timezone Madrid -> GatoTV ya devuelve hora España
-# No convierte, lee lo que ves en la web
+# scraper_hoy_playwright_direct - FIX para GitHub
+# Siempre usa fecha de Madrid, no UTC de GitHub
 
 from playwright.sync_api import sync_playwright
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from bs4 import BeautifulSoup
 import time
 
+MADRID = ZoneInfo("Europe/Madrid")
+
 def get_offset_espana():
-    # Solo para poner +0100 / +0200 en el XML
-    ahora = datetime.now()
-    # último domingo marzo y octubre
+    ahora = datetime.now(MADRID)
     def ultimo_domingo(y,m):
         if m==12:
             u=datetime(y,12,31)
@@ -24,7 +24,11 @@ def get_offset_espana():
         return u
     inicio = ultimo_domingo(ahora.year,3)
     fin = ultimo_domingo(ahora.year,10)
-    if inicio <= ahora.replace(hour=0) < fin:
+    # Comparar solo fecha
+    hoy0 = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio0 = inicio.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=MADRID)
+    fin0 = fin.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=MADRID)
+    if inicio0 <= hoy0 < fin0:
         return "+0200"
     else:
         return "+0100"
@@ -37,8 +41,6 @@ CANALES = [
 
 def parse_hora_es(txt):
     txt=txt.strip()
-    # GatoTV en España te da 00:00, 01:30, 20:30
-    # A veces con AM/PM si no carga JS
     for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p"):
         try:
             return datetime.strptime(txt.upper().replace(".", ""), fmt)
@@ -48,9 +50,11 @@ def parse_hora_es(txt):
 
 def raspar_hoy(page, slug, fecha_hoy, tz_offset):
     url = f"https://www.gatotv.com/canal/{slug}"
-    print(f"  → {url}")
+    print(f"  → {url} (fecha Madrid: {fecha_hoy.strftime('%Y-%m-%d')})")
     page.goto(url, wait_until="networkidle", timeout=30000)
     page.wait_for_selector("table.tbl_EPG", timeout=15000)
+    # Pequeña espera extra para que el JS convierta la hora
+    page.wait_for_timeout(1500)
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
     progs=[]
@@ -113,8 +117,13 @@ def generar_xml(data):
 
 def main():
     tz_offset=get_offset_espana()
-    print(f"Offset España: {tz_offset} (Playwright con timezone Europe/Madrid)")
-    hoy=datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    ahora_madrid = datetime.now(MADRID)
+    ahora_utc = datetime.utcnow()
+    # FIX: hoy SIEMPRE en Madrid, no en UTC de GitHub
+    hoy = ahora_madrid.replace(hour=0,minute=0,second=0,microsecond=0)
+    print(f"GitHub UTC: {ahora_utc} | Madrid: {ahora_madrid} | Hoy para XML: {hoy} | Offset: {tz_offset}")
+    print(f"Si en España es 01:35 del 31, en México son 18:35 del 30, pero pedimos el 31 de España")
+    
     canales_data=[]
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=True)
@@ -132,7 +141,7 @@ def main():
         browser.close()
     xml=generar_xml(canales_data)
     open("guide.xml","w",encoding="UTF-8").write(xml)
-    print(f"✓ guide.xml {sum(len(c['programas']) for c in canales_data)} programas")
+    print(f"✓ guide.xml {sum(len(c['programas']) for c in canales_data)} programas en hora España")
 
 if __name__=="__main__":
     main()
