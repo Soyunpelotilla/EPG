@@ -5,17 +5,36 @@ from datetime import datetime, timedelta
 
 URL = "https://cdn.epg.guru/7dayiptv/Mexico.xml"
 
+def arreglar_acentos(texto):
+    if not texto:
+        return texto
+    try:
+        # Arregla siÃ³n -> sión, Ã¡ -> á, etc. (2 pasadas por si viene triple)
+        if "Ã" in texto or "Â" in texto:
+            for _ in range(2):
+                try:
+                    texto = texto.encode('latin1').decode('utf-8')
+                except:
+                    break
+    except:
+        pass
+    return texto
+
 print(f"Bajando {URL}...")
 headers = {"User-Agent":"Mozilla/5.0"}
 r = requests.get(URL, timeout=120, headers=headers)
-raw = r.text
+try:
+    raw = r.content.decode('utf-8')
+except:
+    raw = r.content.decode('latin1')
 
 tv = ET.Element("tv")
 
-# Si ya es XMLTV, lo guardamos directo
+# Si ya es XMLTV, lo guardamos directo pero arreglando acentos
 if "<tv" in raw.lower() and "<programme" in raw.lower():
+    raw = arreglar_acentos(raw)
     open("guide.xml","w",encoding="utf-8").write(raw)
-    print("Ya era XMLTV")
+    print("Ya era XMLTV con acentos arreglados")
     exit()
 
 # Si no, es el formato de tus capturas (Gracenote)
@@ -24,7 +43,7 @@ for line in raw.splitlines()[:5000]:
     m = re.search(r'(\d{4,6})\s+\d{4,6}\s*$', line)
     if m:
         cid = m.group(1)
-        nombre = line[:m.start()].strip()
+        nombre = arreglar_acentos(line[:m.start()].strip())
         if nombre and cid not in canales:
             canales[cid] = nombre
             ch = ET.SubElement(tv,"channel")
@@ -39,7 +58,7 @@ for line in raw.splitlines():
     m = prog_pat.search(line)
     if not m: continue
     fecha, hora, resto = m.groups()
-    titulo = resto.split("  ")[0][:120].strip()
+    titulo = arreglar_acentos(resto.split("  ")[0][:120].strip())
     if len(titulo) < 3: continue
     try:
         dt = datetime.strptime(f"{fecha} {hora}", "%Y-%m-%d %H:%M:%S")
@@ -66,4 +85,4 @@ for line in raw.splitlines():
 xml_str = ET.tostring(tv, encoding="unicode")
 pretty = minidom.parseString(xml_str).toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
 open("guide.xml","w",encoding="utf-8").write(pretty)
-print(f"✓ guide.xml {count} programas")
+print(f"✓ guide.xml {count} programas con acentos arreglados")
