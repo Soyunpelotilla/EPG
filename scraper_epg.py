@@ -1,271 +1,138 @@
 #!/usr/bin/env python3
-# ==============================================================================
-# Script: scraper_epg.py
-# Función: Raspa programación de gatotv.com y genera XML en formato XMLTV
-# Usa Playwright para ejecutar JavaScript y obtener la página completa.
-# gatotv.com devuelve hora México (UTC-6) independientemente de la IP.
-# Se convierte a hora España (UTC+1 invierno / UTC+2 verano).
-# ==============================================================================
+# scraper_hoy_playwright_direct.py
+# CON PLAYWRIGHT + timezone Madrid -> GatoTV ya devuelve hora España
+# No convierte, lee lo que ves en la web
 
 from playwright.sync_api import sync_playwright
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from bs4 import BeautifulSoup
-import re
 import time
 
-# ==============================================================================
-# ZONA HORARIA ESPAÑA - Detección automática
-# ==============================================================================
-
-def ultimo_domingo(year, month):
-    ultimo_dia = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year, 12, 31)
-    dias_hasta_domingo = ultimo_dia.weekday() + 1
-    if dias_hasta_domingo == 7:
-        dias_hasta_domingo = 0
-    return ultimo_dia - timedelta(days=dias_hasta_domingo)
-
-def get_timezone_espana():
-    ahora = datetime.utcnow()
-    inicio_verano = ultimo_domingo(ahora.year, 3)
-    fin_verano    = ultimo_domingo(ahora.year, 10)
-    if inicio_verano <= ahora < fin_verano:
-        offset, nombre, horas = "+0200", "CEST (verano)", 2
+def get_offset_espana():
+    # Solo para poner +0100 / +0200 en el XML
+    ahora = datetime.now()
+    # último domingo marzo y octubre
+    def ultimo_domingo(y,m):
+        if m==12:
+            u=datetime(y,12,31)
+        else:
+            u=datetime(y,m+1,1)-timedelta(days=1)
+        while u.weekday()!=6:
+            u-=timedelta(days=1)
+        return u
+    inicio = ultimo_domingo(ahora.year,3)
+    fin = ultimo_domingo(ahora.year,10)
+    if inicio <= ahora.replace(hour=0) < fin:
+        return "+0200"
     else:
-        offset, nombre, horas = "+0100", "CET (invierno)", 1
-    print(f"  Zona horaria España: {offset} ({nombre})")
-    print(f"  Diferencia México→España: +{6 + horas}h (México UTC-6 → España UTC{offset})")
-    return offset, horas
-
-# ==============================================================================
-# CONFIGURACIÓN
-# ==============================================================================
+        return "+0100"
 
 CANALES = [
-    {
-        "id": "FOX MX",
-        "nombre": "FOX MX",
-        "url_slug": "fox_mexico",
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png",
-    },
-    {
-        "id": "FOX+ MX",
-        "nombre": "FOX+ MX",
-        "url_slug": "fox_plus_centroamerica",
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png",
-    },
-    {
-        "id": "Canal 5 MX",
-        "nombre": "Canal 5 MX",
-        "url_slug": "5_mexico",
-        "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png",
-    },
+    {"id": "FOX MX", "nombre": "FOX MX", "url_slug": "fox_mexico", "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox-mediano.png"},
+    {"id": "FOX+ MX", "nombre": "FOX+ MX", "url_slug": "fox_plus_centroamerica", "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/fox_plus-mediano.png"},
+    {"id": "Canal 5 MX", "nombre": "Canal 5 MX", "url_slug": "5_mexico", "logo": "https://imagenes.gatotv.com/logos/canales/oscuros/5_de_mexico-mediano.png"},
 ]
 
-DIAS = 3
-HORA_RE = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)$", re.IGNORECASE)
+def parse_hora_es(txt):
+    txt=txt.strip()
+    # GatoTV en España te da 00:00, 01:30, 20:30
+    # A veces con AM/PM si no carga JS
+    for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p"):
+        try:
+            return datetime.strptime(txt.upper().replace(".", ""), fmt)
+        except:
+            continue
+    return None
 
-# ==============================================================================
-# FUNCIONES
-# ==============================================================================
-
-def convertir_hora(hora_str, fecha, tz_offset, tz_horas):
-    """
-    Convierte hora de México (UTC-6) a hora de España (UTC+1 o UTC+2).
-    Diferencia total: 6 + tz_horas (7h en invierno, 8h en verano).
-    """
-    hora_str = hora_str.strip()
-    try:
-        t = datetime.strptime(hora_str, "%I:%M %p")
-    except ValueError:
-        return None
-
-    dt_mexico = fecha.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
-    dt_utc    = dt_mexico + timedelta(hours=6)           # México UTC-6 → UTC
-    dt_espana = dt_utc + timedelta(hours=tz_horas)       # UTC → España
-
-    return dt_espana.strftime("%Y%m%d%H%M%S") + " " + tz_offset
-
-
-def extraer_titulo_y_desc(celda):
-    enlace = celda.find("a")
-    if enlace:
-        titulo = enlace.get_text(strip=True)
-    else:
-        lineas = [l.strip() for l in celda.get_text(separator="\n", strip=True).split("\n") if l.strip()]
-        titulo = lineas[0] if lineas else ""
-
-    desc = ""
-    for tag in celda.find_all(["p", "span", "small"]):
-        t = tag.get_text(strip=True)
-        if t and t != titulo:
-            desc = t
-            break
-
-    if not desc:
-        lineas = [l.strip() for l in celda.get_text(separator="\n", strip=True).split("\n") if l.strip()]
-        if len(lineas) > 1 and len(lineas[1]) > 30:
-            desc = lineas[1]
-
-    return titulo, desc
-
-
-def raspar_canal_dia(page, slug, fecha, tz_offset, tz_horas):
-    """Raspa un canal para una fecha usando Playwright."""
-    fecha_str = fecha.strftime("%Y-%m-%d")
-    url = f"https://www.gatotv.com/canal/{slug}/{fecha_str}"
-    print(f"  → Raspando: {url}")
-
-    try:
-        page.goto(url, wait_until="networkidle", timeout=30000)
-        page.wait_for_selector("table", timeout=15000)
-    except Exception as e:
-        print(f"  ✗ Error cargando página: {e}")
-        return []
-
+def raspar_hoy(page, slug, fecha_hoy, tz_offset):
+    url = f"https://www.gatotv.com/canal/{slug}"
+    print(f"  → {url}")
+    page.goto(url, wait_until="networkidle", timeout=30000)
+    page.wait_for_selector("table.tbl_EPG", timeout=15000)
     html = page.content()
     soup = BeautifulSoup(html, "html.parser")
-    programas = []
-    vistos = set()
+    progs=[]
+    vistos=set()
+    for tr in soup.find_all("tr"):
+        times=tr.find_all("time")
+        if len(times)<2:
+            continue
+        h_ini=(times[0].get("datetime") or times[0].get_text()).strip()
+        h_fin=(times[1].get("datetime") or times[1].get_text()).strip()
+        div=tr.find("div", class_="div_program_title_on_channel")
+        if not div:
+            continue
+        titulo=div.get_text(strip=True)
+        if not titulo:
+            continue
 
-    for tabla in soup.find_all("table"):
-        for fila in tabla.find_all("tr"):
-            celdas = fila.find_all("td")
-            textos = [c.get_text(separator=" ", strip=True) for c in celdas]
-            textos = [t for t in textos if t]
+        t_ini=parse_hora_es(h_ini)
+        t_fin=parse_hora_es(h_fin)
+        if not t_ini or not t_fin:
+            continue
 
-            if len(textos) < 3:
-                continue
+        fecha_fin=fecha_hoy
+        if t_ini.hour>=18 and t_fin.hour<=6:
+            fecha_fin=fecha_hoy+timedelta(days=1)
 
-            hora_inicio_txt = textos[0]
-            hora_fin_txt    = textos[1]
+        dt_ini=fecha_hoy.replace(hour=t_ini.hour, minute=t_ini.minute, second=0, microsecond=0)
+        dt_fin=fecha_fin.replace(hour=t_fin.hour, minute=t_fin.minute, second=0, microsecond=0)
 
-            if not HORA_RE.match(hora_inicio_txt):
-                continue
-            if not HORA_RE.match(hora_fin_txt):
-                continue
+        ini_str=dt_ini.strftime("%Y%m%d%H%M%S")+f" {tz_offset}"
+        fin_str=dt_fin.strftime("%Y%m%d%H%M%S")+f" {tz_offset}"
 
-            celdas_con_texto = [c for c in celdas if c.get_text(strip=True)]
-            if len(celdas_con_texto) < 3:
-                continue
-            titulo, desc = extraer_titulo_y_desc(celdas_con_texto[2])
+        clave=f"{ini_str}|{titulo}"
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        progs.append({"titulo":titulo,"inicio":ini_str,"fin":fin_str,"dt":dt_ini})
 
-            if not titulo:
-                continue
+    progs.sort(key=lambda x:x["dt"])
+    print(f"  ✓ {len(progs)} programas HOY (hora España directa)")
+    return progs
 
-            # Cruce de medianoche en México: empieza PM y termina AM → fin es día siguiente
-            fin_fecha = fecha
-            if re.search(r"PM", hora_inicio_txt, re.I) and re.search(r"AM", hora_fin_txt, re.I):
-                fin_fecha = fecha + timedelta(days=1)
-
-            inicio_dt = convertir_hora(hora_inicio_txt, fecha,    tz_offset, tz_horas)
-            fin_dt    = convertir_hora(hora_fin_txt,    fin_fecha, tz_offset, tz_horas)
-
-            if not inicio_dt or not fin_dt:
-                continue
-
-            if inicio_dt == fin_dt:
-                continue
-
-            clave = f"{inicio_dt}|{titulo}"
-            if clave in vistos:
-                continue
-            vistos.add(clave)
-
-            programas.append({
-                "titulo": titulo,
-                "desc": desc,
-                "inicio": inicio_dt,
-                "fin": fin_dt,
-            })
-
-    print(f"  ✓ {len(programas)} programas para {fecha_str}")
-    return programas
-
-
-def generar_xml(canales_data):
-    tv = ET.Element("tv")
-    tv.set("generator-info-name", "scraper_epg.py")
-    tv.set("generator-info-url", "https://github.com")
-
-    for canal in canales_data:
-        ch = ET.SubElement(tv, "channel")
-        ch.set("id", canal["id"])
-        dn = ET.SubElement(ch, "display-name")
-        dn.text = canal["nombre"]
-        if canal.get("logo"):
-            icon = ET.SubElement(ch, "icon")
-            icon.set("src", canal["logo"])
-
-    for canal in canales_data:
-        for prog in canal["programas"]:
-            programme = ET.SubElement(tv, "programme")
-            programme.set("start", prog["inicio"])
-            programme.set("stop", prog["fin"])
-            programme.set("channel", canal["id"])
-            titulo_el = ET.SubElement(programme, "title")
-            titulo_el.set("lang", "es")
-            titulo_el.text = prog["titulo"]
-            if prog.get("desc"):
-                desc_el = ET.SubElement(programme, "desc")
-                desc_el.set("lang", "es")
-                desc_el.text = prog["desc"]
-
-    xml_str = ET.tostring(tv, encoding="unicode")
-    dom = minidom.parseString(xml_str)
-    return dom.toprettyxml(indent="  ", encoding="UTF-8").decode("UTF-8")
-
-
-# ==============================================================================
-# MAIN
-# ==============================================================================
+def generar_xml(data):
+    tv=ET.Element("tv")
+    for c in data:
+        ch=ET.SubElement(tv,"channel")
+        ch.set("id",c["id"])
+        ET.SubElement(ch,"display-name").text=c["nombre"]
+    for c in data:
+        for p in c["programas"]:
+            pr=ET.SubElement(tv,"programme")
+            pr.set("start",p["inicio"])
+            pr.set("stop",p["fin"])
+            pr.set("channel",c["id"])
+            t=ET.SubElement(pr,"title")
+            t.set("lang","es")
+            t.text=p["titulo"]
+    xml=ET.tostring(tv,encoding="unicode")
+    return minidom.parseString(xml).toprettyxml(indent="  ",encoding="UTF-8").decode("UTF-8")
 
 def main():
-    print("═══ INICIANDO SCRAPER EPG GATOTV (Playwright) ═══")
-    tz_offset, tz_horas = get_timezone_espana()
-
-    hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    fechas = [hoy + timedelta(days=i) for i in range(DIAS)]
-
-    canales_data = []
-
+    tz_offset=get_offset_espana()
+    print(f"Offset España: {tz_offset} (Playwright con timezone Europe/Madrid)")
+    hoy=datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    canales_data=[]
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        browser=p.chromium.launch(headless=True)
+        context=browser.new_context(
+            locale="es-ES",
+            timezone_id="Europe/Madrid",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
         )
-        page = context.new_page()
-
+        page=context.new_page()
         for canal in CANALES:
-            print(f"\n─── Canal: {canal['nombre']} ───")
-            todos_programas = []
-
-            for fecha in fechas:
-                programas_dia = raspar_canal_dia(page, canal["url_slug"], fecha, tz_offset, tz_horas)
-                todos_programas.extend(programas_dia)
-                time.sleep(1)
-
-            canales_data.append({
-                "id": canal["id"],
-                "nombre": canal["nombre"],
-                "logo": canal["logo"],
-                "programas": todos_programas,
-            })
-            print(f"  ═► Total: {len(todos_programas)} programas en {DIAS} días")
-
+            print(f"\n--- {canal['nombre']} ---")
+            progs=raspar_hoy(page,canal["url_slug"],hoy,tz_offset)
+            canales_data.append({**canal,"programas":progs})
+            time.sleep(1)
         browser.close()
+    xml=generar_xml(canales_data)
+    open("guide.xml","w",encoding="UTF-8").write(xml)
+    print(f"✓ guide.xml {sum(len(c['programas']) for c in canales_data)} programas")
 
-    print("\n─── GENERANDO XML ───")
-    xml_output = generar_xml(canales_data)
-
-    with open("guide.xml", "w", encoding="UTF-8") as f:
-        f.write(xml_output)
-
-    total = sum(len(c["programas"]) for c in canales_data)
-    print(f"✓ guide.xml generado — Canales: {len(canales_data)} | Programas: {total}")
-    print("═══ PROCESO FINALIZADO ═══")
-
-
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
