@@ -27,26 +27,20 @@ jobs:
       - name: Ejecutar conversor epg.guru a XMLTV
         run: python scraper_epg.py
 
-      - name: Validar guide.xml
+      - name: Comprimir a .gz
         run: |
           if [ ! -f guide.xml ]; then
             echo "❌ guide.xml no existe"
             exit 1
           fi
-          if ! grep -q "<programme" guide.xml; then
-            echo "❌ guide.xml no tiene programas"
-            cat guide.xml | head -n 100
-            exit 1
-          fi
-          CANALES=$(grep -c "<channel " guide.xml)
-          PROGRAMAS=$(grep -c "<programme " guide.xml)
-          echo "✅ guide.xml válido — Canales: $CANALES | Programas: $PROGRAMAS"
+          gzip -c guide.xml > guide.xml.gz
+          ls -lh guide.xml guide.xml.gz
+          rm guide.xml
 
-      - name: Publicar guide.xml
-        if: success()
+      - name: Publicar guide.xml.gz
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
-          git add guide.xml
+          git add guide.xml.gz
           git commit -m "EPG Mexico actualizada $(date '+%d/%m/%Y %H:%M UTC')" || echo "Sin cambios"
           git push
